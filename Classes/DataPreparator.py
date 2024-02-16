@@ -13,14 +13,20 @@ from processing.core.Processing import Processing
 import processing
 
 class DataPreparator:
+    """
+    ### Initial attributes:
+    - buildings_path: .csv or .txt containing the building info. The following 3 fields are required (with these names): identifier, lat, long. Files must be prepared to have this 3 columns or the function must be redefined
+    - cadastre_path: Directory containing all the cadastre geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
+    - LiDAR_path: Directory containing all the LiDAR files, AND ONLY THE LiDAR FILES (extensions: .laz, or .txt/.csv)
+    - output_path: Directory where exports need to be saved (if the folder does not exist, it will be created)
+
+    ### Public methods:
+    - prepare_buildings: converts a list of buildings to the specified crs (i.e. that of LiDAR data). It also filters for buildings with the same coordinates
+    - prepare_cadastre: exports a list with all the cadastre files in a given directory with the min and max corners of each file, in the specified crs (i.e., that of the LiDAR data)
+    - prepare_LiDAR: exports a .csv with the list of all the LiDAR files in a directory and their limits. It also needs the paht of LAStools, because if there is a .laz file, it is first converted to .csv
+    """
+            
     def __init__(self, buildings_path, cadastre_path, LiDAR_path, output_path):
-        """
-    ### Inputs (attributes):
-    - .csv or .txt containing the building info. The following 3 fields are required (with these names): identifier, lat, long. Files must be prepared to have this 3 columns or the function must be redefined
-    - Directory containing all the cadastre geopackages (extensions: .gpkg or .zip containing a .gpkg)
-    - Directory where exports need to be saved (if the folder does not exist, it will be created)
-    - Directory containing all the LiDAR files (extensions: .laz, or .txt/.csv)
-        """
         self.buildings_path = buildings_path
         self.cadastre_path = cadastre_path
         self.LiDAR_path = LiDAR_path
@@ -29,8 +35,12 @@ class DataPreparator:
     @staticmethod
     def __findRepeats(list, position):
         """
-        Given a list and the position of an element inside the list, returns the position of the first element that matches the same value as the one in the given position.
-        If no element that matches is found, it returns -1
+    #### Inputs:
+    - A list 
+    - The position of an element inside the list
+    
+    #### Outputs:
+    - Returns the position of the first element that matches the same value as the one in the given position. If no element that matches is found, it returns -1
         """
         iterable = list[0:position]
         for i in range(len(iterable)):
@@ -41,14 +51,18 @@ class DataPreparator:
     @staticmethod
     def __signFromDirection(value):
         """
-        Given a coordinate (latitude/longitude), checks if its string an if it ends in N/S/E/W and, if it does, converts it to a signed float 
+    #### Inputs:
+    - A coordinate (latitude/longitude), that can either be a string or a float
+
+    #### Outputs:
+    - If it is a string and it ends in N/S/E/W, returns the string as a signed float. If it was already a float, returns the same value without change
         """
         if(type(value) ==type("Hello")):
             direction = value[-1]
             number = value[:-1]
             if direction == 'E' or direction == 'N':    return float(number)
             elif direction == 'W' or direction == 'S':    return -float(number)
-            else:   return value
+            else:   return float(value)
 
         else:
             return value

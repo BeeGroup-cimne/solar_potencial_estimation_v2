@@ -15,12 +15,13 @@ class PlaneDetector:
                  heightThreshold=1, nGradient=5, ransacIterations=20, distanceThreshold=0.2, 
                  minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=0.1, pdfExponent=2, 
                  deleteFirst=True, interactive=False, readFromFile=False, fileSplit=None):
+        
         self.building = building
         self.segmented_LiDAR = segmented_LiDAR
 
-        self.planeListPath = savePaths[0]
-        self.planePointsPath = savePaths[1]
-        self.imagesPath = savePaths[2]
+        self.planeListPath = savePaths[0] + "/"
+        self.planePointsPath = savePaths[1] + "/"
+        self.imagesPath = savePaths[2] + "/"
 
         self.heightThreshold = heightThreshold
         self.nGradient = nGradient
@@ -408,7 +409,7 @@ class PlaneDetector:
             heightGroups = self.__interactiveSplit(df)
 
         for j in range(len(heightGroups)):
-            print("Level:", j)
+            print("Group:", j)
             self.currentGroup = heightGroups[j].copy().reset_index(drop=True)
 
             # Compute gradient
@@ -419,7 +420,7 @@ class PlaneDetector:
             self.planePointsList = []
             notPlanePoints = self.currentGroup.copy()
 
-            while(len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)):
+            while(len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)): #Need to redefine the stopping criteria
                 # print("Another iteration")
                 bestPlane, planePoints, notPlanePoints = self.__ransac_ordered(notPlanePoints, min(self.minGlobalPercentage*len(self.currentGroup), self.minPartialPercentage*len(notPlanePoints)))
                 if(len(bestPlane) > 0):

@@ -19,6 +19,14 @@ Processing.initialize()
 import processing
 
 class LidarSegmentator:
+    """
+    ### Attributes:
+    -
+
+    ### Public methods:
+    -
+    """
+
     def __init__(self, building, temp_path="Temp"):
         self.building = building
         self.temp_path = temp_path
@@ -186,7 +194,7 @@ class LidarSegmentator:
 
         offset_poligon_layer = processing.run("native:buffer", {
             'INPUT':self.found_poligon_Layer,
-            'DISTANCE':offset,
+            'DISTANCE':offset/(40075*1000)*360, # Converts from meters to arc degrees
             'SEGMENTS':5,
             'END_CAP_STYLE':2,
             'JOIN_STYLE':2,
@@ -199,6 +207,7 @@ class LidarSegmentator:
             'INPUT':Layer_LIDAR,
             'PREDICATE':[6], # inside
             'INTERSECT':offset_poligon_layer['OUTPUT'],
+            # 'INTERSECT':self.found_poligon_Layer,
             'METHOD':0,
             }
         )
@@ -208,7 +217,6 @@ class LidarSegmentator:
 
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = "CSV"
-        coordinateTransformContext = QgsProject.instance().transformContext()
         options.fileEncoding = "UTF-8"
         options.ct = QgsCoordinateTransform(points_buildings_Layer.crs(), QgsCoordinateReferenceSystem.fromEpsgId(srcLiDAR),QgsProject.instance())
         error = QgsVectorFileWriter.writeAsVectorFormatV3(points_buildings_Layer, export_path, QgsCoordinateTransformContext(), options)

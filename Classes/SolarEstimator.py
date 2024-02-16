@@ -14,6 +14,13 @@ from Functions.general_functions import create_output_folder, merge_txt
 import pandas as pd
 
 class SolarEstimator:
+    """
+    ### Attributes:
+    -
+
+    ### Public methods:
+    -
+    """
 
     def register_folders(self):
         self.segmented_path = self.output_path + "/01 - Segmented Buildings"
@@ -24,12 +31,12 @@ class SolarEstimator:
         baseOutputPath_STL = self.square_path + "/04 - 3D models - stl"
         self.squarePaths = [baseOutputPath_TXT, baseOutputPath_LAS, baseOutputPath_DEM, baseOutputPath_STL]
 
-        # self.identifiedPath = self.output_path + "/03 - Plane Identification"
+        self.identifiedPath = self.output_path + "/03 - Plane Identification"
 
-        # planeListPath = self.identifiedPath + "/01 - Plane Lists/"
-        # planePointsPath = self.identifiedPath + "/02 - Points from planes/"
-        # imagesPlanePath = self.identifiedPath + "/03 - Images/"
-        # self.identifiedPaths = [planeListPath, planePointsPath, imagesPlanePath]
+        planeListPath = self.identifiedPath + "/01 - Plane Lists"
+        planePointsPath = self.identifiedPath + "/02 - Points from planes"
+        imagesPlanePath = self.identifiedPath + "/03 - Images"
+        self.identifiedPaths = [planeListPath, planePointsPath, imagesPlanePath]
 
         # self.processedPath = self.output_path + "/04 - Plane Processing"
         # processedResultsPath = self.processedPath + "/01 - Results/"
@@ -39,26 +46,55 @@ class SolarEstimator:
         # self.shadingPath = self.output_path + "/05 - Shading Matrices"
         # self.pysamResultsPath = self.output_path + "/06 - PySAM Simulation"
 
-    def __init__(self, building, output_path, srcLiDAR, temp_path="Results/_Temp"):
+    def __init__(self, building, output_path, srcLiDAR, square_side=200, temp_path="Results/_Temp"):
         self.building = pd.DataFrame(building).reset_index(drop=True)
         self.output_path = output_path + "/" + self.building.identifier[0]
         self.temp_path = temp_path
         self.srcLiDAR = srcLiDAR
+        self.square_side = square_side
+
         create_output_folder(self.temp_path)
 
         self.register_folders()
 
     # Step 0 - load the Data
     def loadData(self, LiDAR_info_path, cadastre_info_path, LiDAR_files_path, cadastre_files_path):
+        """
+    This functinos registers each path into the SolarEstimator object
+
+    #### Inputs:
+    - LiDAR_info_path: file with all the LiDAR limits (the one generated with the dataPreparator class) 
+    - cadastre_info_path: file with all the cadastre limits (the one generated with the dataPreparator class) 
+    - LiDAR_files_path: path where the LiDAR files are
+    - cadastre_files_path: path where the cadastre files are
+    
+    #### Outputs:
+    - None
+        """
         self.LiDAR_limits = pd.read_csv(LiDAR_info_path) 
         self.cadastre_limits = pd.read_csv(cadastre_info_path)
         self.LiDAR_path = LiDAR_files_path
         self.cadastre_path = cadastre_files_path
 
     # Step 1 - segment LiDAR
-    def segmentLiDAR(self, offset=1, stl_side=500):
-        # Store data
-        self.stl_side = stl_side
+    def segmentLiDAR(self, offset=1, square_side=None):
+        """
+    This function generates a .csv file with the LiDAR points inside the building limits (with a buffer)
+
+    #### Inputs:
+    - offset: the offset/buffer (in m) that should be applied around the geometry lmits of the building
+    - square_side: the length (in m) of the side of the square of the 3D model that is generated and will later be used for shading
+    
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - .csv file of the LiDAR points inside the polygon of the building with the given buffer
+        """
+
+        # Store attributes
+        if(square_side != None):
+            self.square_side = square_side
         self.LiDAR_offset = offset
         
         # Prepare output
@@ -67,7 +103,7 @@ class SolarEstimator:
         self.segmentator = LidarSegmentator(self.building, self.temp_path)
 
         # Gets all LiDAR files within a "side" square and merge the files
-        fileList = self.segmentator.findFilesForSquare(self.LiDAR_limits, self.stl_side)
+        fileList = self.segmentator.findFilesForSquare(self.LiDAR_limits, self.square_side)
         if(len(fileList) < 1):
             with open(self.output_path + "/log.csv", 'w') as f:
                 f.write("Building ", self.building.identifier[0], " has no LiDAR data available")
@@ -89,8 +125,28 @@ class SolarEstimator:
                 print("Building " + self.building.identifier[0] + " does not have cadastre info")
 
     # Step 2 - Export the .stl file
-    def createNeighborhood(self, export3D=True):
-        self.stlGenerator = STLExporter(self.building, self.stl_side, self.squarePaths, self.temp_path, LAStoolsPath="C:/LAStools")
+    def createNeighborhood(self, LAStoolsPath, square_side=None, export3D=True):
+        """
+    This function generates a .3d file of the neighborhood
+
+    #### Inputs:
+    - LAStoolsPath: directory where txt2las.exe is stored
+    - square_side: the length (in m) of the side of the square of the 3D model that is generated and will later be used for shading
+    - export3D: if False, it ony  export .csv and .laz files. If True, it exports also the raster and .stl file 
+    
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - .csv file of the LiDAR points within the neighborhood
+    - .laz file of the neighborhood
+    - (if export3D) .asc file of the neighborhood
+    - (if export3D) .stl file (3D model) of the neighborhood
+        """
+        if(square_side != None):
+            self.square_side = square_side
+
+        self.stlGenerator = STLExporter(self.building, self.square_side, self.squarePaths, self.temp_path, LAStoolsPath=LAStoolsPath)
         self.stlGenerator.segmentSquare(self.LiDAR_extended)
         self.stlGenerator.txt_to_las()
         if(export3D):
@@ -99,15 +155,27 @@ class SolarEstimator:
 
     # Step 3 - Plane identification with RANSAC
     def identifyPlanes(self, generateFigures=True, **kwargs):
-        self.generateFigures = generateFigures
-        self.planeDetector = PlaneDetector(self.building, self.segmented_path, self.identifiedPaths, self.generateFigures, **kwargs)
+        """
+    This function identifies the planes of the object's building
+
+    #### Inputs:
+    - generateFigures: whether or not to export figures of the identified planes
+    ##### **kwargs:
+    - 
+    
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - 
+        """
+        self.planeDetector = PlaneDetector(self.building, self.segmented_path, self.identifiedPaths, generateFigures, **kwargs)
         self.planeDetector.detectPlanes()
 
     # Step 4 - Plane processing (with multiple criteria)    
     def processPlanes(self, generateFigures=True, **kwargs):
         cadastrePath = self.segmented_path + "/" + self.building.identifier[0] + ".gpkg"
-        self.generateFigures = generateFigures
-        self.planeProcessor = PlaneProcessor(self.building, self.segmented_path, self.identifiedPaths, self.processedPaths, cadastrePath, self.generateFigures, **kwargs)
+        self.planeProcessor = PlaneProcessor(self.building, self.segmented_path, self.identifiedPaths, self.processedPaths, cadastrePath, generateFigures, **kwargs)
         self.planeProcessor.loadIdentifiedData()
         self.planeProcessor.plotPlanes("From RANSAC" + self.building.identifier[0])
 
@@ -138,7 +206,6 @@ class SolarEstimator:
         if(generateFigures):
             self.shadingPath = self.shadingPath + " with figures"
         create_output_folder(self.shadingPath, deleteFolder=True)
-        self.generateFigures = generateFigures
 
         planeListFile = self.processedPaths[0] + "PlaneList_" + self.building.identifier[0] + ".csv"
         self.planedf = pd.read_csv(planeListFile) # Yes, I'm doing this only to get the number of planes
@@ -148,7 +215,7 @@ class SolarEstimator:
             self.shader.prepareDataShading()
             self.shader.sampleRoof()
             self.shader.shadingCalculation()
-            if(self.generateFigures):
+            if(generateFigures):
                 self.shader.plotShadingMatrix(plotAll=True)
     
     # Step 6 -PySAM simulation

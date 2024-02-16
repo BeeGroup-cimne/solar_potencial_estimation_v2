@@ -12,6 +12,14 @@ from qgis import processing
 from Functions.general_functions import create_output_folder
 
 class STLExporter:
+    """
+    ### Attributes:
+    -
+
+    ### Public methods:
+    -
+    """
+    
     def __init__(self, building, stl_side, squarePaths, temp_path, LAStoolsPath):
         self.building = building
         self.stl_side = stl_side
