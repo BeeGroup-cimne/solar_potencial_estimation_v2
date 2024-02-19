@@ -38,13 +38,14 @@ class SolarEstimator:
         imagesPlanePath = self.identifiedPath + "/03 - Images"
         self.identifiedPaths = [planeListPath, planePointsPath, imagesPlanePath]
 
-        # self.processedPath = self.output_path + "/04 - Plane Processing"
-        # processedResultsPath = self.processedPath + "/01 - Results/"
-        # processedImagesPath = self.processedPath + "/02 - Images/"
-        # self.processedPaths = [processedResultsPath, processedImagesPath]
+        self.processedPath = self.output_path + "/04 - Plane Processing"
+        processedResultsPath = self.processedPath + "/01 - Results/"
+        processedImagesPath = self.processedPath + "/02 - Images/"
+        self.processedPaths = [processedResultsPath, processedImagesPath]
+        
 
-        # self.shadingPath = self.output_path + "/05 - Shading Matrices"
-        # self.pysamResultsPath = self.output_path + "/06 - PySAM Simulation"
+        self.shadingPath = self.output_path + "/05 - Shading Matrices"
+        self.pysamResultsPath = self.output_path + "/06 - PySAM Simulation"
 
     def __init__(self, building, output_path, srcLiDAR, square_side=200, temp_path="Results/_Temp"):
         self.building = pd.DataFrame(building).reset_index(drop=True)
@@ -60,7 +61,7 @@ class SolarEstimator:
     # Step 0 - load the Data
     def loadData(self, LiDAR_info_path, cadastre_info_path, LiDAR_files_path, cadastre_files_path):
         """
-    This functinos registers each path into the SolarEstimator object
+    This function registers each path into the SolarEstimator object
 
     #### Inputs:
     - LiDAR_info_path: file with all the LiDAR limits (the one generated with the dataPreparator class) 
@@ -114,11 +115,11 @@ class SolarEstimator:
             
             # Checks each cadastre limits and looks for polygon only in those files where it is indicated it could be in 
             self.segmentator.find_potential_cadastre(self.cadastre_limits)
-            self.foundCadastre = self.segmentator.poligon_cadastre(self.cadastre_path, self.srcLiDAR)
+            self.foundCadastre = self.segmentator.polygon_cadastre(self.cadastre_path, self.srcLiDAR)
             if(self.foundCadastre):
                 export_path = self.segmented_path + "/" + self.building.identifier[0]
                 self.segmentator.export_geopackage(export_path)
-                self.segmentator.LiDAR_poligon_segmentation(self.LiDAR_extended, export_path, self.LiDAR_offset, self.srcLiDAR)
+                self.segmentator.LiDAR_polygon_segmentation(self.LiDAR_extended, export_path, self.LiDAR_offset, self.srcLiDAR)
             else:
                 with open(self.output_path + "/log.csv", 'w') as f:
                     f.write("Building " + self.building.identifier[0] + " does not have cadastre info")
@@ -198,7 +199,7 @@ class SolarEstimator:
         
         self.planeProcessor.deleteOverlaps()
         self.planeProcessor.pierce(cadastre=False)
-        self.planeProcessor.cadastreTrim()
+        self.planeProcessor.cadastreTrim(source=4326, target=self.srcLiDAR)
         self.planeProcessor.exportResults()
 
     # Step 5 -Shading calculation
@@ -215,11 +216,12 @@ class SolarEstimator:
             self.shader.prepareDataShading()
             self.shader.sampleRoof()
             self.shader.shadingCalculation()
+            self.shader.plotShadingMatrix(plotAll=False)
             if(generateFigures):
                 self.shader.plotShadingMatrix(plotAll=True)
     
     # Step 6 -PySAM simulation
-    def simulatePySAM(self, tmyfile, multipleTilts=True, ratio=float(0.450/2), **kwargs):
+    def simulatePySAM(self, tmyfile, generateFigures=False, ratio=float(0.450/2), **kwargs):
         # planeListFile = self.processedPaths[0] + "PlaneList_" + self.building.identifier[0] + ".csv"
         # self.planedf = pd.read_csv(planeListFile)
         # create_output_folder(self.pysamResultsPath, deleteFolder=True)
@@ -275,7 +277,8 @@ class SolarEstimator:
                 simulationResults = self.pysam_simulator.runPySAMSimulation()
                 acAnnuals.append(simulationResults["ac_annual"])
                 radiationAnnuals.append(simulationResults["solrad_annual"])
-                # self.pysam_simulator.plotGenerationHeatmap()
+                if(generateFigures):
+                    self.pysam_simulator.plotGenerationHeatmap()
 
 
         self.pySAMResults = pd.DataFrame({"roofID": roofIds, 

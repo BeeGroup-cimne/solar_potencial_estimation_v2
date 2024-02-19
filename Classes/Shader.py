@@ -12,8 +12,63 @@ import shapely.wkt, shapely.affinity
 from sklearn.decomposition import PCA
 
 class Shader:
+    """
+    Used for computing several shading matrices of the planes of the given plane 
+    
+    ### Attributes: 
+    #### Defined upon initialization:
+    - building: single-row dataframe containing x, y and identifier of the desired building
+    - planeID: (integer) id of the it is desired to shade
+    - pointCloud_path: path with the .txt file of the neighborhood (square of stl_side by stl_side). This is needed so that the minimum height of the building and the minimum height of the 3d model can be equalized
+    - STL_path: path with the .stl file of the neighborhood (to shade)
+    - planes_path: path where the files relative to the plane (plane list and points within plane) are
+    - shadingResultsPath: path to store the shading results
+    - Nsamples: maximum number of points to be sampled from a plane. This is orientative, as it does not count sampling the plane outline, and is not correct for planes with irregular shape
+    - div: minimum distance between sampled points. This ensures that, for smaller planes, (if Nsamples is too high) the sampling does not become redundant 
+    - anglesAzimuth: array with the minimum and maximum angles to sweep [angleMin, angleMax]. Azimuth begins at North=0º and positive goes clockwise
+    - stepAzimuth: resolution of the angle step while looping in azimuth sweep
+    - anglesTilt: array with the minimum and maximum angles to sweep [angleMin, angleMax]. Tilt begins at horizontal=0º and positive goes upwise (until max 90º, although it can be stopped before)
+    - stepTilt: resolution of the angle step while looping in tilt sweep
+    - bufferSize: buffer distance (in meters) around plane to avoid being shaded by itself
+
+    #### Self-generated:
+    - planeParams: dataframe containing a, b, c, d parameters of the plane equation
+    - planedf: dataframe containing all x, y, z points (from raw LiDAR data) belonging to the current plane
+    - trimmedPolygon: shapely Polygon object, containing the trimmed polygon of the plane (to know where to sample)
+    - mesh: mesh item (containing points and triangles) loaded from the stl file
+    - planeResultsPath: path where individual matrices will be stored for the current plane
+
+    - points: list containing 3 arrays (x, y and z coordinates) for the points sampled from the current plane
+    
+    - matrix: list with all shading matrices, for all sampled points
+    - intersedctedList: list containing, for each sampled point, sets of 2 arrays, containing the data of intersections (intersected x,y coordinates and elevation of the ray that caused the intersection)
+    - averageMatrix: average matrix, considering all the sampled points
+
+    ### Public methods:
+    - prepareDataShading: loads into the class all the data needed for shading. Updates the planeParam, planedf, trimmedPolygon, mesh, planeResultsPath attributes.
+    - sampleRoof: knowing the plane (attribute from the object), obtains an array of points to shade
+    - shadingCalculation: computes the shading matrix of the current plane. Updates the matrix, intersectedList, averageMatrix attributes.
+    - plotShadingMatrix: given the shading matrices, exports the average matrix as an image and, if desired, the individual matrices and the images of rays sending
+    """
+
     def __init__(self, building, planeID, pointCloud_path, STL_path, planes_path, shadingResultsPath, 
-                 Nsamples=50, div=2, anglesAzimuth=[60, 300], stepAzimuth=3, anglesTilt=[0, 87], stepTilt=3, bufferSize=1, shadeInside=True):
+                 Nsamples=50, div=2, anglesAzimuth=[60, 300], stepAzimuth=3, anglesTilt=[0, 87], stepTilt=3, bufferSize=1):
+        """ 
+    #### Inputs:
+    - building: single-row dataframe containing x, y and identifier of the desired building
+    - planeID: (integer) id of the it is desired to shade
+    - pointCloud_path: path with the .txt file of the neighborhood (square of stl_side by stl_side). This is needed so that the minimum height of the building and the minimum height of the 3d model can be equalized
+    - STL_path: path with the .stl file of the neighborhood (to shade)
+    - planes_path: path where the files relative to the plane (plane list and points within plane) are
+    - shadingResultsPath: path to store the shading results
+    - Nsamples: maximum number of points to be sampled from a plane. This is orientative, as it does not count sampling the plane outline, and is not correct for planes with irregular shape
+    - div: minimum distance between sampled points. This ensures that, for smaller planes, (if Nsamples is too high) the sampling does not become redundant 
+    - anglesAzimuth: array with the minimum and maximum angles to sweep [angleMin, angleMax]. Azimuth begins at North=0º and positive goes clockwise
+    - stepAzimuth: resolution of the angle step while looping in azimuth sweep
+    - anglesTilt: array with the minimum and maximum angles to sweep [angleMin, angleMax]. Tilt begins at horizontal=0º and positive goes upwise (until max 90º, although it can be stopped before)
+    - stepTilt: resolution of the angle step while looping in tilt sweep
+    - bufferSize: buffer distance (in meters) around plane to avoid being shaded by itself
+        """
         self.building = building
         self.planeID = planeID
         self.pointCloud_path = pointCloud_path + "/" + self.building.identifier[0] + ".txt"
@@ -27,10 +82,18 @@ class Shader:
         self.stepAzimuth = stepAzimuth
         self.anglesTilt = anglesTilt
         self.stepTilt = stepTilt
-        self.shadeInside = shadeInside
         self.bufferSize = bufferSize
 
     def prepareDataShading(self):
+        """ 
+    Loads into the class all the data needed for shading. Updates the planeParam, planedf, trimmedPolygon, mesh, planeResultsPath attributes.
+
+    #### Inputs:
+    - None
+
+    #### Outputs:
+    - None
+        """
         # Get point cloud center
         centerX, centerY = self.building.x[0], self.building.y[0]
 
@@ -40,11 +103,7 @@ class Shader:
 
         minz = pointsNeighborhood["z"].min()
 
-        # self.pointsNeighborhood["x"] = self.pointsNeighborhood["x"] - centerX
-        # self.pointsNeighborhood["y"] = self.pointsNeighborhood["y"] - centerY
-        # self.pointsNeighborhood["z"] = self.pointsNeighborhood["z"] - minz
-
-        # Get plane equation (fix d so that we can recalculate points later)
+        # Get plane equation (d is fixed so that we can recalculate points later)
         planeParamsPath = self.planes_path + "/PlaneList_" + self.building.identifier[0] + ".csv"
         self.planeParams = pd.read_csv(planeParamsPath)
         self.planeParams = self.planeParams.iloc[self.planeID]
@@ -60,22 +119,11 @@ class Shader:
         self.planedf["y"] = self.planedf["y"] - centerY
         self.planedf["z"] = self.planedf["z"] - minz # !The min has to be pointsdf.min(), so that heights are the same
 
-        # x = self.planedf["x"]
-        # y = self.planedf["y"]
-        # p = []
-
-        # for j in range(len(x)):
-        #     p.append((x[j], y[j]))
-        # coords = PlaneProcessor.convexhull(p)
-        # self.polygon = Polygon(coords)
-        self.polygon = shapely.wkt.loads(self.planeParams.polygon)
-        self.polygon = shapely.affinity.translate(self.polygon, xoff=-centerX, yoff=-centerY)
         # Load trimmed polygon
         self.trimmedPolygon = shapely.wkt.loads(self.planeParams.trimmedPolygon)
         self.trimmedPolygon = shapely.affinity.translate(self.trimmedPolygon, xoff=-centerX, yoff=-centerY)
 
         # Load stl
-
         self.mesh = trimesh.load(self.STL_path)
         self.mesh.vertices[:] = self.mesh.vertices[:] - [(self.mesh.bounds[1][0])/2, (self.mesh.bounds[1][1])/2, 0] # Must be centered arround building
 
@@ -83,15 +131,38 @@ class Shader:
         self.planeResultsPath = self.shadingResultsPath + "/" + str(self.planeID) + "/" 
         create_output_folder(self.planeResultsPath, deleteFolder=True)
 
-    def computePCA(self):
-        X = self.planedf[["x", "y"]]
-        self.pca = PCA(n_components=2)
-        self.pca.fit(X)
+    @staticmethod
+    def __computePCA(planedf):
+        """ 
+    Given the plane, computes the PCA to get the ideal directions to sample
+
+    #### Inputs:
+    - planedf: containing "x" and "y" of the desired plane
+
+    #### Outputs:
+    - pca: pca object (will be used to obtain principal directions)
+        """
+        X = planedf[["x", "y"]]
+        pca = PCA(n_components=2)
+        pca.fit(X)
+        return pca
 
     def sampleRoof(self):
-        self.computePCA()
+        """ 
+    Knowing the plane (attribute from the object), obtains an array of points to shade. Updates the points attribute
+
+    #### Inputs:
+    - None (used some of the object's attributes)
+
+    #### Outputs:
+    - None (the attribute points is update to contain 3 array of the X, Y and Z coordinates of teh sampled points)
+
+    ### Exports:
+    - .csv containing the sampled points (x, y and z coordinates), in the system of reference of the mesh (that is, the building centroid is 0,0)
+        """
+        pca = Shader.__computePCA(self.planedf)
         
-        newData = self.pca.transform(self.planedf[["x", "y"]])
+        newData = pca.transform(self.planedf[["x", "y"]])
         newX = []
         newY = []
         for newPoint in newData:
@@ -112,35 +183,43 @@ class Shader:
 
         for i in range(len(xv[0])):
             for j in range(len(yv)):
-                xv[j][i], yv[j][i] = np.dot([xvPCA[0][i], yvPCA[j][0]], self.pca.components_) + self.pca.mean_
+                xv[j][i], yv[j][i] = np.dot([xvPCA[0][i], yvPCA[j][0]], pca.components_) + pca.mean_
         
-        self.pointsX = []
-        self.pointsY = []
-        self.pointsZ = []
+        pointsX = []
+        pointsY = []
+        pointsZ = []
 
         for i in range(len(xv[0])):
             for j in range(len(yv)):
                 point = Point(xv[j][i], yv[j][i])
                 if (point.within(self.trimmedPolygon) == True):
-                    self.pointsX.append(xv[j][i])
-                    self.pointsY.append(yv[j][i])
-                    self.pointsZ.append(-1/self.planeParams.c * (self.planeParams.a*xv[0][i]+ self.planeParams.b*yv[j][0]+ self.planeParams.d))
+                    pointsX.append(xv[j][i])
+                    pointsY.append(yv[j][i])
+                    pointsZ.append(-1/self.planeParams.c * (self.planeParams.a*xv[0][i]+ self.planeParams.b*yv[j][0]+ self.planeParams.d))
         
         xarray= np.array(self.trimmedPolygon.exterior.xy[0])
         yarray = np.array(self.trimmedPolygon.exterior.xy[1])
 
-        self.pointsX.extend(xarray)
-        self.pointsY.extend(yarray)
-        self.pointsZ.extend(-1/self.planeParams.c * (self.planeParams.a*xarray+ self.planeParams.b*yarray+ self.planeParams.d))
+        pointsX.extend(xarray)
+        pointsY.extend(yarray)
+        pointsZ.extend(-1/self.planeParams.c * (self.planeParams.a*xarray+ self.planeParams.b*yarray+ self.planeParams.d))
 
-        df = pd.DataFrame({"x": self.pointsX, "y": self.pointsY, "z": self.pointsZ})
+        self.points = [pointsX, pointsY, pointsZ]
+
+        df = pd.DataFrame({"x": pointsX, "y": pointsY, "z": pointsZ})
         df.to_csv(self.planeResultsPath + "Points sampled.csv", header = None, index=False)
         
 
     @staticmethod    
-    def vector(azimuth, tilt):
+    def __vector(azimuth, tilt):
         """ 
-        Given the azimuth and tilt, returns the coordinates of the unit vector
+    Given the azimuth and tilt of a plane, returns the coordinates of the unit vector
+
+    #### Inputs:
+    - azimuth: azimuth in degrees. For reference, North is azimuth=0, and East is azimuth=90
+    - tilt: tilt in degrees
+
+    #### Outputs: array with the x,y,z components of the unit vector normal to the plane
         """
         x = math.sin(math.radians(azimuth)) * math.cos(math.radians(tilt))
         y = math.cos(math.radians(azimuth)) * math.cos(math.radians(tilt))
@@ -149,6 +228,19 @@ class Shader:
     
         
     def shadingCalculation(self):
+        """ 
+    Computes the shading matrix of the current plane. Updates the matrix, intersectedList, averageMatrix attributes.
+
+    #### Inputs:
+    - None
+
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - .csv containing the average shading matrix of the whole plane
+    - Folder (Individual Matrices) containing a .csv of the shading matrix for each sampled_point  
+        """
         self.matrix = []
 
         minAngleAzimuth = self.anglesAzimuth[0]
@@ -165,16 +257,16 @@ class Shader:
         if(normal[2] < 0):
             normal = -normal # Normal vector must be pointing upwards
 
-        for i in range(len(self.pointsX)): # Ideally its len(planedf)), but points need to be sampled for time of computing reasons
+        for i in range(len(self.points[0])): # Ideally its len(planedf)), but points need to be sampled for time of computing reasons
             #print(i)
             intersectedPoints = []
             intersectedTilts = []
             matr_point_3by3 = np.zeros((int((maxAngleTilt-minAngleTilt)/stepAngleTilt) + 1, int((maxAngleAzimuth-minAngleAzimuth)/stepAngleAzimuth) + 1))
             
-            ray_origins = np.array([[self.pointsX[i], self.pointsY[i], self.pointsZ[i]]])
+            ray_origins = np.array([[self.points[0][i], self.points[1][i], self.points[2][i]]])
             for azimuth in range(minAngleAzimuth, maxAngleAzimuth+stepAngleAzimuth, stepAngleAzimuth): # From 60 to 303 degrees in 3 deg steps reduces computation calculation
                 for tilt in range(minAngleTilt, maxAngleTilt+stepAngleTilt, stepAngleTilt):
-                    ray_directions = Shader.vector(azimuth, tilt)
+                    ray_directions = Shader.__vector(azimuth, tilt)
 
                     # Only send rays if the ray doesn't intersect the plane
 
@@ -186,17 +278,13 @@ class Shader:
                             
                             for j in range(len(n_intersection)):
                                 p = Point(loc_intersects[j][0], loc_intersects[j][1])
-                                if(p.within(self.polygon.buffer(self.bufferSize)) == False):
+                                if(p.within(self.trimmedPolygon.buffer(self.bufferSize)) == False):
                                     matr_point_3by3[0:(tilt-minAngleTilt)//stepAngleTilt, (azimuth-minAngleAzimuth)//stepAngleAzimuth] = 100
                                     intersectedPoints.append(p)
                                     intersectedTilts.append(tilt)
 
-                    else:
-                        if(self.shadeInside):
-                            matr_point_3by3[(tilt-minAngleTilt)//stepAngleTilt, (azimuth-minAngleAzimuth)//stepAngleAzimuth] = 100
-                        else:
-                            matr_point_3by3[(tilt-minAngleTilt)//stepAngleTilt, (azimuth-minAngleAzimuth)//stepAngleAzimuth] = 0
-            
+                    else: # Shade Inside
+                        matr_point_3by3[(tilt-minAngleTilt)//stepAngleTilt, (azimuth-minAngleAzimuth)//stepAngleAzimuth] = 100
                     
 
             self.intersectedList.append([intersectedPoints, intersectedTilts])
@@ -204,81 +292,82 @@ class Shader:
 
         if(len(self.matrix) > 0):
 
-            self.mat_stl_mean = sum(self.matrix)/len(self.matrix)
+            mat_stl_mean = sum(self.matrix)/len(self.matrix)
 
             # Export individual matrices
 
             az = [i for i in range(minAngleAzimuth, maxAngleAzimuth+stepAngleAzimuth, stepAngleAzimuth)]
             ti = [i for i in range(minAngleTilt, maxAngleTilt+stepAngleTilt, stepAngleTilt)]
             
-            self.individualResultsPath = self.planeResultsPath + "Individual Matrices/" 
-            create_output_folder(self.individualResultsPath)
+            individualResultsPath = self.planeResultsPath + "Individual Matrices/" 
+            create_output_folder(individualResultsPath)
 
-            for i in range(len(self.pointsX)):
-                self.df_mat = pd.DataFrame(self.matrix[i], index=ti, columns=az)
-                savename = self.individualResultsPath + str(i).zfill(2) + ".csv"
-                self.df_mat.to_csv(savename)
+            for i in range(len(self.points[0])):
+                df_mat = pd.DataFrame(self.matrix[i], index=ti, columns=az)
+                savename = individualResultsPath + str(i).zfill(2) + ".csv"
+                df_mat.to_csv(savename)
 
             # Export average matrix
-            self.df_mat = pd.DataFrame(self.mat_stl_mean, index=ti, columns=az)
-            #df_mat = df_mat.iloc[::-1]
+            self.averageMatrix = pd.DataFrame(mat_stl_mean, index=ti, columns=az)
             savename = self.planeResultsPath + "Average_" +  str(self.planeID) + ".csv"
-            self.df_mat.to_csv(savename)
+            self.averageMatrix.to_csv(savename)
 
 
     def plotShadingMatrix(self, plotAll=False):
         """
+    Given the shading matrices, exports the average matrix as an image and, if desired, the individual matrices and the images of rays sending
     #### Inputs:
-    - df_mat: shading matrix, previously calculated
-    - exportPath (string): base path where exported files will be saved 
-    - building (string): building name 
-    - planeID (int): position of the plane within the planeParams .csv
+    - plotAll: whether to plot all intermediate steps (that is, ALL individual matrices and ALL ray sending images). This is very time-consuming, so it is advised to be kept as False
 
     #### Outputs: None
 
     #### Exports: 
     - Figure with the average shading matrix 
+    - (if plotAll): figures with the individual matrices and ray sendings
         """
-        self.meshX = []
-        self.meshY = []
-        self.meshZ = []
 
-        for i in range(len(self.mesh.vertices)):
-            self.meshX.append(self.mesh.vertices[i][0])
-            self.meshY.append(self.mesh.vertices[i][1])
-            self.meshZ.append(self.mesh.vertices[i][2])
+        plt.rcParams['figure.figsize'] = [12,6]
+        fig, ax = plt.subplots()
+        df_mat = self.averageMatrix.iloc[::-1]
+        sc = ax.matshow(df_mat, cmap='viridis_r')
 
-        if(len(self.matrix) > 0):
-            self.MatrixImagesPath = self.shadingResultsPath + "/" + str(self.planeID) + "/Matrix Images/"
-            create_output_folder(self.MatrixImagesPath)
-            self.RaysPath = self.shadingResultsPath + "/" + str(self.planeID) + "/Rays Sending/"
-            create_output_folder(self.RaysPath)
+        # Set the x-axis tick labels to be the column names of df_mat
+        x_ticks = np.arange(0, len(df_mat.columns), 5)  # Adjust the step as needed
+        ax.set_xticks(x_ticks)
+        ax.set_xticklabels(df_mat.columns[x_ticks])
 
-            plt.rcParams['figure.figsize'] = [12,6]
-            fig, ax = plt.subplots()
-            df_mat = self.df_mat.iloc[::-1]
-            sc = ax.matshow(df_mat, cmap='viridis_r')
+        # Set the y-axis tick labels to be the index values of df_mat
+        y_ticks = np.arange(0, len(df_mat.index), 3)  # Adjust the step as needed
+        ax.set_yticks(y_ticks)
+        ax.set_yticklabels(df_mat.index[y_ticks])
+        
+        plt.colorbar(sc)
+        
+        savename = self.planeResultsPath  + "Average_" +  str(self.planeID) + ".png"
 
-            # Set the x-axis tick labels to be the column names of df_mat
-            x_ticks = np.arange(0, len(df_mat.columns), 5)  # Adjust the step as needed
-            ax.set_xticks(x_ticks)
-            ax.set_xticklabels(df_mat.columns[x_ticks])
+        fig.savefig(savename)
+        plt.close()
 
-            # Set the y-axis tick labels to be the index values of df_mat
-            y_ticks = np.arange(0, len(df_mat.index), 3)  # Adjust the step as needed
-            ax.set_yticks(y_ticks)
-            ax.set_yticklabels(df_mat.index[y_ticks])
-            
-            plt.colorbar(sc)
-            
-            savename = self.planeResultsPath  + "Average_" +  str(self.planeID) + ".png"
+        if(plotAll):
 
-            fig.savefig(savename)
-            plt.close()
+            meshX = []
+            meshY = []
+            meshZ = []
 
-            if(plotAll):
+            for i in range(len(self.mesh.vertices)):
+                meshX.append(self.mesh.vertices[i][0])
+                meshY.append(self.mesh.vertices[i][1])
+                meshZ.append(self.mesh.vertices[i][2])
+
+            if(len(self.matrix) > 0):
+                MatrixImagesPath = self.shadingResultsPath + "/" + str(self.planeID) + "/Matrix Images/"
+                create_output_folder(MatrixImagesPath)
+                RaysPath = self.shadingResultsPath + "/" + str(self.planeID) + "/Rays Sending/"
+                create_output_folder(RaysPath)
+
+
                 for i in range(len(self.matrix)):
-                    # Plot Matrix -----------------------------------------------------------------------------------------
+                    # Plot Matrices -----------------------------------------------------------------------------------------
                     minAngleAzimuth = self.anglesAzimuth[0]
                     maxAngleAzimuth = self.anglesAzimuth[1]
                     stepAngleAzimuth = self.stepAzimuth
@@ -309,15 +398,15 @@ class Shader:
 
                     plt.colorbar(sc)
                     
-                    savename = self.MatrixImagesPath  + str(i).zfill(2) + ".png"
+                    savename = MatrixImagesPath  + str(i).zfill(2) + ".png"
 
                     fig.savefig(savename)
                     plt.close()
 
                     # Plot ray sendings -----------------------------------------------------------------------------------------
                     fig, ax = plt.subplots()
-                    ax.scatter(self.meshX, self.meshY, c=self.meshZ)
-                    ax.scatter(self.pointsX, self.pointsY, c="gray", marker = ".")
+                    ax.scatter(meshX, meshY, c=meshZ)
+                    ax.scatter(self.points[0], self.points[1], c="gray", marker = ".")
 
                     intersectedX = []
                     intersectedY = []
@@ -332,9 +421,9 @@ class Shader:
                     for j in range(len(self.intersectedList[pointToCheck][0])):
                         intersectedX.append(self.intersectedList[pointToCheck][0][j].xy[0])
                         intersectedY.append(self.intersectedList[pointToCheck][0][j].xy[1])
-                        ax.plot([self.pointsX[pointToCheck], intersectedX[j][0]], [self.pointsY[pointToCheck], intersectedY[j][0]], c=colors[j], zorder=1, linestyle=":") #linewidth=5
+                        ax.plot([self.points[0][pointToCheck], intersectedX[j][0]], [self.points[1][pointToCheck], intersectedY[j][0]], c=colors[j], zorder=1, linestyle=":") #linewidth=5
                     ax.scatter(intersectedX, intersectedY, c="black", s=25, zorder=2)
-                    ax.scatter(self.pointsX[pointToCheck], self.pointsY[pointToCheck], c="red", s=50, zorder=2)
+                    ax.scatter(self.points[0][pointToCheck], self.points[1][pointToCheck], c="red", s=50, zorder=2)
 
                     ax.set_xlim(-25,25) 
                     ax.set_ylim(-25,25)
@@ -348,7 +437,7 @@ class Shader:
                     ax.plot(self.trimmedPolygon.buffer(self.bufferSize).exterior.xy[0], self.trimmedPolygon.buffer(self.bufferSize).exterior.xy[1])
                     ax.set_aspect('equal', adjustable='box')
 
-                    savename = self.RaysPath  + str(i).zfill(2) + ".png"
+                    savename = RaysPath  + str(i).zfill(2) + ".png"
                     fig.savefig(savename)
                     plt.close()
 

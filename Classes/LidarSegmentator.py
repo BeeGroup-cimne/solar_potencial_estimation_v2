@@ -20,14 +20,30 @@ import processing
 
 class LidarSegmentator:
     """
-    ### Attributes:
-    -
+    Used for segmentating the LiDAR files into the builing and its neighborhood
+    
+    ### Attributes: 
+    #### Defined upon initialization:
+    - building: single-row dataframe containing the following fields: identifier, x, y
+    - temp_path: path to store temporal files
+    #### Self-generated:
+    - cadastre_files: list of cadastre files in which the building could be (i.e., the building is within the limits of eachcadastre files)
+    - found_polygon_layer: QGIS vector layer containing the polygon corresponding to the building
 
     ### Public methods:
-    -
+    - findFilesForSquare: knowing the building centroid, finds which LiDAR files are required to obtain the neighborhood square
+    - find_potential_cadastre: updates the cadastre_files attribute with a list with all the cadastre files in which the building centroid can be
+    - polygon_cadastre: obtains a QGIS vector Layer containing only the polygon for the given building (updates the found_polygon_layer attribute)
+    - export_geopackage:  exports the found_polygon_layer to a .gpkg file
+    - LiDAR_polygon_segmentation: exports a .csv file of the LiDAR points that are inside the building (with a buffer applied to the building surroundings).
     """
 
     def __init__(self, building, temp_path="Temp"):
+        """
+    #### Inputs:
+    - building: single-row dataframe containing the following fields: identifier, x, y
+    - temp_path: path to store temporal files
+        """
         self.building = building
         self.temp_path = temp_path
 
@@ -35,7 +51,7 @@ class LidarSegmentator:
     def __find_LiDAR(LiDAR_limits, x, y):
         """
     #### Inputs:
-    - A datafrmae containing the LiDAR files names and limits
+    - A dataframe containing the LiDAR files names and limits
     - x and y coordinates of the point
 
     #### Outputs: 
@@ -51,7 +67,7 @@ class LidarSegmentator:
     def findFilesForSquare(self, LiDAR_limits, size):
         """
     #### Inputs:
-    - A datafrmae containing the LiDAR files names and limits
+    - A dataframe containing the LiDAR files names and limits
     - The side of the square to segment
 
     #### Outputs: 
@@ -101,11 +117,13 @@ class LidarSegmentator:
     
     def find_potential_cadastre(self,cadastre_limits):
         """
+    Generates a list with all the cadastre files in which the building centroid can be (cadastre_files attribute)
+    
     #### Inputs:
     - A dataframe of the cadastre limits of each file
 
     #### Outputs: 
-    - Returns a list with all the cadastre files in which the building centroid can be
+    - None
         """
         self.cadastre_files = []
         for i in range(len(cadastre_limits)):
@@ -117,14 +135,16 @@ class LidarSegmentator:
             if(LidarSegmentator.__inside_rect([self.building.x[0], self.building.y[0]], cornerMin, cornerMax)):
                 self.cadastre_files.append(current_file['file'])
     
-    def poligon_cadastre(self, cadastre_files_path, srcLiDAR):
+    def polygon_cadastre(self, cadastre_files_path, srcLiDAR):
         """
+    Obtains a QGIS vector Layer containing only the polygon for the given building
+
     #### Inputs:
     - The path where are the cadastre files are (all the files, not only those that have been confirmed to be within limits)
     - The src used in the point cloud file
 
     #### Outputs: 
-    - Returns a QGIS vector Layer containing only the polygon for the given building
+    - Returns True or False, whether a polygon has been found
         """
 
         # Exports building info to (temporal) csv and imports it as a layer 
@@ -133,14 +153,14 @@ class LidarSegmentator:
         uri = 'file:///%s?crs=%s&xField=%s&yField=%s' % (tempExport, 'epsg:'+str(srcLiDAR), 'x','y')
         Building_Centroid_Layer=QgsVectorLayer(uri,"Building_Centroid_Layer","delimitedtext")
 
-        # Finds the poligon in the cadastre file(s) that contains the centroid 
+        # Finds the polygon in the cadastre file(s) that contains the centroid 
         for cadastre_file in self.cadastre_files:
 
             # Loads cadastre Layer
             directory = cadastre_files_path + "/" + cadastre_file
             Cadastre_Layer = QgsVectorLayer(directory,"Cadastre_Layer","ogr")
             
-            # Finds cadastre poligon that contains building centroid
+            # Finds cadastre polygon that contains building centroid
             selected = processing.run("native:selectbylocation", {
                 'INPUT':Cadastre_Layer,
                 'PREDICATE':[1], # contains
@@ -150,10 +170,10 @@ class LidarSegmentator:
                 }
             )
 
-            self.found_poligon_Layer = Cadastre_Layer.materialize(QgsFeatureRequest().setFilterFids(Cadastre_Layer.selectedFeatureIds()))
-            self.found_poligon_Layer.setName("found_poligon_Layer")
+            self.found_polygon_Layer = Cadastre_Layer.materialize(QgsFeatureRequest().setFilterFids(Cadastre_Layer.selectedFeatureIds()))
+            self.found_polygon_Layer.setName("found_polygon_Layer")
 
-            if(self.found_poligon_Layer.featureCount() >= 1):
+            if(self.found_polygon_Layer.featureCount() >= 1):
                 return True
             
         return False
@@ -167,14 +187,14 @@ class LidarSegmentator:
     - None
     
     #### Exports:
-    - Saves the found_poligon_layer to a .gpkg file
+    - Saves the found_polygon_layer to a .gpkg file
         """
 
         options = QgsVectorFileWriter.SaveVectorOptions()
         options.driverName = "GPKG"
-        QgsVectorFileWriter.writeAsVectorFormatV3(self.found_poligon_Layer, export_path, QgsCoordinateTransformContext(), options)
+        QgsVectorFileWriter.writeAsVectorFormatV3(self.found_polygon_Layer, export_path, QgsCoordinateTransformContext(), options)
 
-    def LiDAR_poligon_segmentation(self, LiDAR_file, export_path, offset, srcLiDAR):
+    def LiDAR_polygon_segmentation(self, LiDAR_file, export_path, offset, srcLiDAR):
         """
     #### Inputs:
     - Path of the file where the LiDAR points of the building are (could be an original file or it could be a merged file)
@@ -192,8 +212,8 @@ class LidarSegmentator:
         uri = 'file:///%s?crs=%s&xField=%s&yField=%s&zField=%s&delimiter=%s' % (os.path.abspath(LiDAR_file), 'epsg:'+str(srcLiDAR), 'field_1','field_2', 'field_3', ' ')
         Layer_LIDAR=QgsVectorLayer(uri,"Layer_LIDAR","delimitedtext")
 
-        offset_poligon_layer = processing.run("native:buffer", {
-            'INPUT':self.found_poligon_Layer,
+        offset_polygon_layer = processing.run("native:buffer", {
+            'INPUT':self.found_polygon_Layer,
             'DISTANCE':offset/(40075*1000)*360, # Converts from meters to arc degrees
             'SEGMENTS':5,
             'END_CAP_STYLE':2,
@@ -206,8 +226,8 @@ class LidarSegmentator:
         selected = processing.run("native:selectbylocation", {
             'INPUT':Layer_LIDAR,
             'PREDICATE':[6], # inside
-            'INTERSECT':offset_poligon_layer['OUTPUT'],
-            # 'INTERSECT':self.found_poligon_Layer,
+            'INTERSECT':offset_polygon_layer['OUTPUT'],
+            # 'INTERSECT':self.found_polygon_Layer,
             'METHOD':0,
             }
         )

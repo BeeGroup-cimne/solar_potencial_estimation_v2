@@ -641,7 +641,7 @@ class PlaneProcessor:
         polygon = Polygon(coords)
         return polygon
 
-    def cadastreTrim(self, source=3035, target=5514):
+    def cadastreTrim(self, source, target):
         polygonData = gpd.read_file(self.cadastrePath)
         cadastreLimits = polygonData.geometry[0]
         if(type(cadastreLimits) != type(Polygon())):

@@ -11,7 +11,7 @@ The following Python libraries are required (between brackets, the latest versio
 ## Data Preparation
 
 - <span style="color:lime"> Code working </span>.
-- <span style="color:red"> Documentation </span>
+- <span style="color:lime"> Documentation </span>
 
 ## Solar Estimation
 
@@ -20,12 +20,12 @@ The following Python libraries are required (between brackets, the latest versio
 - <span style="color:red"> Documentation </span>
 
 ### 1. Segment LiDAR
-- <span style="color:red"> Code working </span>
-- <span style="color:red"> Documentation </span>
+- <span style="color:lime"> Code working </span>
+- <span style="color:lime"> Documentation </span>
 
 ### 2. Generate STL
-- <span style="color:red"> Code working </span>
-- <span style="color:red"> Documentation </span>
+- <span style="color:lime"> Code working </span>
+- <span style="color:lime"> Documentation </span>
 
 ### 3. Plane identification
 - <span style="color:red"> Code working </span>
@@ -37,8 +37,8 @@ The following Python libraries are required (between brackets, the latest versio
 
 ### 5. Compute Shading
 - <span style="color:red"> Code working </span>
-- <span style="color:red"> Documentation </span>
+- <span style="color:lime"> Documentation </span>
 
 ### 6. PySAM simulation
-- <span style="color:red"> Code working </span>
-- <span style="color:red"> Documentation </span>
+- <span style="color:lime"> Code working </span>
+- <span style="color:lime"> Documentation </span>

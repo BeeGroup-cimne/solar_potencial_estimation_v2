@@ -12,9 +12,45 @@ from matplotlib.dates import DateFormatter
 from Functions.general_functions import create_output_folder
 
 class PySAMSimulator:
+    """
+    Used for computing several shading matrices of the planes of the given plane 
+    
+    ### Attributes: 
+    #### Defined upon initialization:
+    - file_names: THIS MUST NOT BE MODIFIED. Path to pysam_templates (relative path is already defined)
+    - shadingMatrixPath: .csv containing the shading path, as obtained from the Shader module
+    - planeID: (integer) id of the plane to simulate (id obtained from plane identification, the same id as the one used for shading)
+    - area: plane area, in m^2 
+    - ratio: watts per square meter ratio. This is used because the simulator needs, as an input, a solar capactiy, not an area.
+    - tilt: plane tilt, in degrees
+    - azimuth: plane azimuth, in degrees
+    - tmyfile: .csv of the TMYfile, must be otained from NREL (https://nsrdb.nrel.gov/data-viewer) or converted to the same format
+    - exportPath: path to export the simulation results.
+
+    #### Self-generated:
+    - pv: module (json) containing the PVWatts simulation parameters. Once simulated, it also contains the results
+    - grid: module (json) containing the grid simulation parameters.
+
+    - shadingMatrix: shading matrix of the current point, in the format needed for PySAM
+
+    - generation: 24x365 matrix containing the hourly generation
+
+    ### Public methods:
+    - runPySAMSimulation: runs the PV simulation for each sampled point, with their respective shading matrix. Updates the generation attribute
+    - plotGenerationHeatmap: plots the yearly PV generation (hour of day vs. day of the year) as a heatmap
+    """
+
     def __init__(self, shadingPath, exportPath, planedf, planeID, ratio, tmyfile):
+        """ 
+     #### Inputs:
+    - shadingMatrixPath: .csv containing the shading path, as obtained from the Shader module
+    - exportPath: path to export the simulation results.
+    - planedf: dataframe containing the area, tilt and azimuth of each plane found in the building. Simulation is performed only on one plane at a time 
+    - planeID: (integer) id of the plane to simulate (id obtained from plane identification, the same id as the one used for shading)
+    - ratio: watts per square meter ratio. This is used because the simulator needs, as an input, a solar capactiy, not an area.
+    - tmyfile: .csv of the TMYfile, must be otained from NREL (https://nsrdb.nrel.gov/data-viewer) or converted to the same format
+       """
         self.file_names = ["./Classes/pysam_template_pvwattsv8", "./Classes/pysam_template_grid"]
-        # self.shadingMatrixPath = shadingPath + "/" + str(planeID) + "/Average_" + str(planeID) + ".csv"
         self.shadingMatrixPath = shadingPath
         self.planeID = planeID
         self.area = planedf.area[planeID]
@@ -27,16 +63,22 @@ class PySAMSimulator:
         # create_output_folder(self.exportPath)
         
     
-    def loadModules(self):
-        """
-        From the default directory, loads the json files containing the necessary info and returns it into two modules: pv and grid
+    def __loadModules(self):
+        """ 
+    From the default directory, loads the json files containing the necessary info and returns it into two modules: pv and grid
+
+    #### Inputs:
+    - None
+
+    #### Outputs:
+    - None (updates the pv, grid and modules attributes)
         """
         self.pv = PVWatts.new()
         self.grid = Grid.from_existing(self.pv)
 
-        self.modules = [self.pv, self.grid]
+        modules = [self.pv, self.grid]
 
-        for f, m in zip(self.file_names, self.modules):
+        for f, m in zip(self.file_names, modules):
             with open(f + ".json", 'r') as file:
                 data = json.load(file)
                 # loop through each key-value pair
@@ -44,9 +86,16 @@ class PySAMSimulator:
                         m.value(k, v)
 
         
-    def readShadingMatrix(self):
-        """
-        Returns the shadingMatrix from the given matrixFile (csv)
+    def __readShadingMatrix(self):
+        """ 
+    Returns the shadingMatrix from the given matrixFile (csv)
+
+    #### Inputs:
+    - None (knows shading matrix path from object initialization)
+
+    #### Outputs:
+    - None (updates the shadingMatrix attriibute)
+        
         """
         self.shadingMatrix = []
 
@@ -61,47 +110,36 @@ class PySAMSimulator:
                         singleRow.append(float(element))
                 self.shadingMatrix.append(singleRow)
 
-    
-    def modifyParameters(self):
-        """
-        Returns a json containing the different parameters that can be tuned: 
-        - shadingMatrix (read in the previous function) 
-        - area and ratio, for kW calculation
-        - tilt and azimuth
-        - tmyfile 
-        """
-        self.modifiedParams = {"shading_azal": self.shadingMatrix,
-                    "system_capacity": self.area*self.ratio, #*self.pv.value("gcr"), #We don't need the area by the ground coverage ratio
-                    "tilt": self.tilt,
-                    "azimuth": self.azimuth,
-                    "solar_resource_file": self.tmyfile}
         
     def runPySAMSimulation(self):
-        """
+        """ 
+    Runs the PV simulation for each sampled point, with their respective shading matrix. Updates the generation, pv, grid and modules attributes
+
     #### Inputs:
-    - matrixFile (str): directory where the shading matrix is
-    - area (float): rooftop area
-    - ratio (float): in kW/m^2 (a good value is 0.450/2)
-    - tilt, azimuth (float): tilt and azimuth from plane processing
-    - tmyfile (str): path where the TMY file is
+    - None
 
     #### Outputs: 
     - pv.export(): a json file containing all the parameters from the simulation, as well as its outputs (with hourly generation included)
 
     #### Exports: 
-    None
+    - None
         """
 
-        self.loadModules()
-        self.readShadingMatrix()
-        self.modifyParameters()
-
-        for i in range(len(self.modifiedParams)): 
-            self.pv.value(list(self.modifiedParams.keys())[i], list(self.modifiedParams.values())[i])
-
-        self.modules = [self.pv, self.grid]
+        self.__loadModules()
+        self.__readShadingMatrix()
         
-        for m in self.modules:
+        modifiedParams = {"shading_azal": self.shadingMatrix,
+            "system_capacity": self.area*self.ratio, #*self.pv.value("gcr"), #We don't need the area by the ground coverage ratio
+            "tilt": self.tilt,
+            "azimuth": self.azimuth,
+            "solar_resource_file": self.tmyfile}
+
+        for i in range(len(modifiedParams)): 
+            self.pv.value(list(modifiedParams.keys())[i], list(modifiedParams.values())[i])
+
+        modules = [self.pv, self.grid]
+        
+        for m in modules:
             m.execute()
 
         self.generation = self.pv.export()["Outputs"]["ac"]
@@ -113,6 +151,18 @@ class PySAMSimulator:
     
     
     def plotGenerationHeatmap(self):
+        """ 
+    Plots the yearly PV generation (hour of day vs. day of the year) as a heatmap
+
+    #### Inputs:
+    - None
+
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - .png image of the yearly heatmap plot
+        """
 
         fig, ax = plt.subplots(figsize=(12, 6))
 
@@ -136,7 +186,7 @@ class PySAMSimulator:
         ax.set_xticklabels(myDates)
         ax.xaxis.set_major_formatter(DateFormatter("%b"))
 
-        savename = self.exportPath + '/' + str(self.planeID) + "_Generation_heatmap_Tilt" + str(round(self.tilt, 1)) + "_Azimuth" + str(round(self.azimuth, 1)) + ".png"
+        savename = self.exportPath + "_Generation_heatmap_Tilt" + str(round(self.tilt, 1)) + "_Azimuth" + str(round(self.azimuth, 1)) + ".png"
 
         fig.savefig(savename)
         plt.close()

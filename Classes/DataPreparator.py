@@ -14,7 +14,10 @@ import processing
 
 class DataPreparator:
     """
-    ### Initial attributes:
+    Used for preparing the data files of the building list, cadastre and LiDAR
+    
+    ### Attributes:
+    #### Defined upon initialization:
     - buildings_path: .csv or .txt containing the building info. The following 3 fields are required (with these names): identifier, lat, long. Files must be prepared to have this 3 columns or the function must be redefined
     - cadastre_path: Directory containing all the cadastre geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
     - LiDAR_path: Directory containing all the LiDAR files, AND ONLY THE LiDAR FILES (extensions: .laz, or .txt/.csv)
@@ -27,6 +30,13 @@ class DataPreparator:
     """
             
     def __init__(self, buildings_path, cadastre_path, LiDAR_path, output_path):
+        """
+    #### Inputs:
+    - buildings_path: .csv or .txt containing the building info. The following 3 fields are required (with these names): identifier, lat, long. Files must be prepared to have this 3 columns or the function must be redefined
+    - cadastre_path: Directory containing all the cadastre geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
+    - LiDAR_path: Directory containing all the LiDAR files, AND ONLY THE LiDAR FILES (extensions: .laz, or .txt/.csv)
+    - output_path: Directory where exports need to be saved (if the folder does not exist, it will be created)
+        """
         self.buildings_path = buildings_path
         self.cadastre_path = cadastre_path
         self.LiDAR_path = LiDAR_path

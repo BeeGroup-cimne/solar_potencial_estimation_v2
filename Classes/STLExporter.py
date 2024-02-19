@@ -13,14 +13,35 @@ from Functions.general_functions import create_output_folder
 
 class STLExporter:
     """
-    ### Attributes:
-    -
+    Used for generating the 3D model of the neighborhood, given the .csv of the LiDAR points
+    
+    ### Attributes: 
+    #### Defined upon initialization:
+    - building:  single-row dataframe containing the following fields: identifier, x, y
+    - stl_side: length (in meters) of the side of the neighborhood (square)
+    - temp_path: path where temporal files will be stored
+    - TXT_path: path where the .txt of the neighborhood should be stored
+    - LAS_path: path where the .las of the neighborhood should be stored
+    - DEM_path: path where the raster image (.asc) of the neighborhood should be stored
+    - STL_path: path where the .stl of the neighborhood should be stored
+    - LAStoolsPath: path where the LAStools applications are located (needed for txt2las, but general path must be specified)
 
     ### Public methods:
-    -
+    - segmentSquare: from all the LiDAR files, merged them (if needed) and then crop to a .txt of a the square of stl_side*stl_side corresponding to the neighborhood
+    - txt_to_las: convert the previously generated .txt of the neighborhood to a .las file (point cloud file)
+    - las_to_dem: convert the previously generated .las file of the neighborhood to a raster file (middle step needed for 3D generation)
+    - dem_to_3d: convert the previously generated raster file of the neighborhood to a .stl file (3D model)
     """
     
     def __init__(self, building, stl_side, squarePaths, temp_path, LAStoolsPath):
+        """
+    #### Inputs:
+    - building:  single-row dataframe containing the following fields: identifier, x, y
+    - stl_side: length (in meters) of the side of the neighborhood (square)
+    - squarePaths: array containing [TXT_path, LAS_path, DEM_path, STL_path]
+    - temp_path: path where temporal files will be stored(
+    - LAStoolsPath: path where the LAStools applications are located (needed for txt2las, but general path must be specified)
+        """
         self.building = building
         self.stl_side = stl_side
         self.temp_path = temp_path
