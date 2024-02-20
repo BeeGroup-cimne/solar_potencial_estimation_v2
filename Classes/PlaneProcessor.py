@@ -19,7 +19,7 @@ from Classes.PlaneDetector import PlaneDetector
 class PlaneProcessor:
     def __init__(self, building, segmentedPath, identifiedPaths, processedPaths, cadastrePath, generateFigures=True,
                  planeDistanceThreshold=0.5, angleThreshold=10, mergeReiterations=10, splitDistanceThreshold = 2, angleSplitIncrement=5,
-                 minPointsDelete=3, minAreaDelete=5, minDensityDelete=0.25, convexHullHorizon = 5, parallelismAngleThreshold=5, slidingHole=0.75, minHoleSide = 3):
+                 minPointsDelete=6, minAreaDelete=5, minDensityDelete=0.25, convexHullHorizon = 5, parallelismAngleThreshold=5, slidingHole=0.75, minHoleSide = 3):
         self.building = building 
         self.segmentedPath = segmentedPath
         self.planeListPath = identifiedPaths[0]
@@ -222,80 +222,79 @@ class PlaneProcessor:
         Name is the title (and part of the image name)
         Generated plot is stored in file path
         """
-        if(self.generateFigures):
-            # plt.rcParams['figure.figsize'] = [6,6]
-            fig, ax = plt.subplots()
-            color = iter(plt.cm.rainbow(np.linspace(0, 1, len(self.planePointList))))
-            _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, c="Gray", marker=".", alpha = 0.1)
-            if(not showTrimmed):
-                for i in range(len(self.planePointList)):
-                    df = self.planePointList[i].copy()
+        # plt.rcParams['figure.figsize'] = [6,6]
+        fig, ax = plt.subplots()
+        color = iter(plt.cm.rainbow(np.linspace(0, 1, len(self.planePointList))))
+        _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, c="Gray", marker=".", alpha = 0.1)
+        if(not showTrimmed):
+            for i in range(len(self.planePointList)):
+                df = self.planePointList[i].copy()
 
-                    x = df["x"]
-                    y = df["y"]
+                x = df["x"]
+                y = df["y"]
 
-                    p = []
+                p = []
 
-                    for j in range(len(x)):
-                        p.append((x[j], y[j]))
+                for j in range(len(x)):
+                    p.append((x[j], y[j]))
+                
+                if(len(p) >= self.minPointsDelete):
+                    ax.set_title(name)
+                    c = next(color)
+
+                    poly = plt.Polygon(PlaneProcessor.convexhull(p), color=c, alpha=0.2) #poly = plt.Polygon(convexhull(p), ec="k", alpha=0.2)
+                    ax.add_patch(poly)    
                     
-                    if(len(p) > 2):
-                        ax.set_title(name)
-                        c = next(color)
+                    ax.scatter(x, y, color=c, marker='.',  label=i)
+            
+            ax.legend(loc="lower left")
+            ax.set_aspect('equal', adjustable='box')
+            
+            filename = self.processedImagesPath + name + ".png"
+            #plt.show()
+            fig.savefig(filename)
+            plt.close()
 
-                        poly = plt.Polygon(PlaneProcessor.convexhull(p), color=c, alpha=0.2) #poly = plt.Polygon(convexhull(p), ec="k", alpha=0.2)
-                        ax.add_patch(poly)    
-                        
-                        ax.scatter(x, y, color=c, marker='.',  label=i)
+        else:
+            for i in range(len(self.planePointList)):
+                df = self.planePointList[i].copy()
+
+                x = df["x"]
+                y = df["y"]
+
+                p = []
+
+                for j in range(len(x)):
+                    p.append((x[j], y[j]))
                 
-                ax.legend(loc="lower left")
-                ax.set_aspect('equal', adjustable='box')
-                
-                filename = self.processedImagesPath + name + ".png"
-                #plt.show()
-                fig.savefig(filename)
-                plt.close()
+                if(len(p) >= self.minPointsDelete):
+                    ax.set_title(name)
+                    c = next(color)
 
-            else:
-                for i in range(len(self.planePointList)):
-                    df = self.planePointList[i].copy()
+                    # PlaneProcessor.plot_polygon(ax, self.exportPlanedf.trimmedPolygon[i], color=c,alpha=0.25)
+                    if(type(self.exportPlanedf.trimmedPolygon[i]) == type(Polygon())):
+                        plt.fill(*self.exportPlanedf.trimmedPolygon[i].exterior.xy, color=c, alpha=0.2)
 
-                    x = df["x"]
-                    y = df["y"]
+                        for interior in self.exportPlanedf.trimmedPolygon[i].interiors:
+                            plt.plot(*interior.xy, color="k", alpha=0.5)
 
-                    p = []
+                    else:
+                        for geom in self.exportPlanedf.trimmedPolygon[i].geoms:
+                            plt.fill(*geom.exterior.xy, color=c, alpha=0.2)
 
-                    for j in range(len(x)):
-                        p.append((x[j], y[j]))
-                    
-                    if(len(p) > 2):
-                        ax.set_title(name)
-                        c = next(color)
+                            for interior in geom.interiors:
+                                plt.plot(*interior.xy, color="k", alpha=0.5) #plt.fill(*interior.xy, color=c, alpha=0.2)
 
-                        # PlaneProcessor.plot_polygon(ax, self.exportPlanedf.trimmedPolygon[i], color=c,alpha=0.25)
-                        if(type(self.exportPlanedf.trimmedPolygon[i]) == type(Polygon())):
-                            plt.fill(*self.exportPlanedf.trimmedPolygon[i].exterior.xy, color=c, alpha=0.2)
-
-                            for interior in self.exportPlanedf.trimmedPolygon[i].interiors:
-                                plt.plot(*interior.xy, color="k", alpha=0.5)
-
-                        else:
-                            for geom in self.exportPlanedf.trimmedPolygon[i].geoms:
-                                plt.fill(*geom.exterior.xy, color=c, alpha=0.2)
-
-                                for interior in geom.interiors:
-                                    plt.plot(*interior.xy, color="k", alpha=0.5) #plt.fill(*interior.xy, color=c, alpha=0.2)
-
-                        ax.scatter(x, y, color=c, marker='.',  label=i)
-                
-                ax.legend(loc="lower left")
-                ax.set_aspect('equal', adjustable='box')
-                
-                filename = self.processedImagesPath + name + ".png"
-                #plt.show()
-                fig.savefig(filename)
-                plt.close()
-                
+                    ax.scatter(x, y, color=c, marker='.',  label=i)
+            
+            ax.legend(loc="lower left")
+            ax.set_aspect('equal', adjustable='box')
+            
+            filename = self.processedImagesPath + name + ".png"
+            #plt.show()
+            fig.savefig(filename)
+            plt.close()
+            
     
 
             
@@ -376,10 +375,11 @@ class PlaneProcessor:
         planeList = []
         for i, item in enumerate(pathlib.Path((self.planeListPath)).iterdir()):
             if item.is_file():
-                df = pd.read_csv(item, header=None)
-                df = df.rename(columns={0: "a", 1: "b", 2:"c", 3:"d"})
-                df["Origin"] = str(i)
-                planeList.append(df)
+                if(item.stat().st_size != 0):
+                    df = pd.read_csv(item, header=None)
+                    df = df.rename(columns={0: "a", 1: "b", 2:"c", 3:"d"})
+                    df["Origin"] = str(i)
+                    planeList.append(df)
 
         self.planedf = pd.concat(planeList).reset_index(drop=True)
         # Get tilt and azimuth for all planes
@@ -518,20 +518,22 @@ class PlaneProcessor:
         self.indexesToMerge = self.getClosestPlanes()
 
         i = 0
-        name = "0 - Original - " + self.building.identifier[0]
-        self.plotPlanes(name)
+        if(self.generateFigures):
+            name = "0 - Original - " + self.building.identifier[0]
+            self.plotPlanes(name)
         
         while(self.indexesToMerge[0] > -1):
             i = i +1
             # print(indexes)
-            self.mergePlanes()
-
-            name = self.building.identifier[0] + "_Merging iteration " + str(i) + " - Merged " + str(self.indexesToMerge [0]) + " and " + str(self.indexesToMerge [1])  
-            self.plotPlanes(name)  
+            self.mergePlanes() 
+            if(self.generateFigures):
+                name = self.building.identifier[0] + "_Merging iteration " + str(i) + " - Merged " + str(self.indexesToMerge [0]) + " and " + str(self.indexesToMerge [1])  
+                self.plotPlanes(name)  
             self.indexesToMerge = self.getClosestPlanes()
 
-        name = "1 - Merging - " + self.building.identifier[0] + "- merged after " + str(i) + " stages"
-        self.plotPlanes(name)
+        if(self.generateFigures):
+            name = "1 - Merging - " + self.building.identifier[0] + "- merged after " + str(i) + " stages"
+            self.plotPlanes(name)
 
     def splitDelete(self):
         """
@@ -586,8 +588,9 @@ class PlaneProcessor:
 
         # Export split planes
         self.planePointList = self.splitPlanes
-        name = "2 - Split Final - " + self.building.identifier[0]
-        self.plotPlanes(name)
+        if(self.generateFigures):
+            name = "2 - Split Final - " + self.building.identifier[0]
+            self.plotPlanes(name)
 
         # Deletes deletable plane
         
@@ -610,8 +613,9 @@ class PlaneProcessor:
 
         # Export final result planes
         self.planePointList = self.splitPlanes
-        name = "3 - Deleted Bad planes - " + self.building.identifier[0] + " - " + str(len(self.planesToDelete)) + " planes deleted"
-        self.plotPlanes(name)
+        if(self.generateFigures):
+            name = "3 - Deleted Bad planes - " + self.building.identifier[0] + " - " + str(len(self.planesToDelete)) + " planes deleted"
+            self.plotPlanes(name)
 
         # Get all results in a dataframe
 
@@ -733,7 +737,7 @@ class PlaneProcessor:
             
             pointsDF = pd.DataFrame(self.planePointList[planeID])
             if(cadastre):
-                outline = self.exportPlanedf.trimmedPolygon[planeID]
+                outline = self.exportPlanedf.trimmedPolygon[planeID].buffer(self.minHoleSide)
             else:
                 outline = self.exportPlanedf.polygon[planeID]
 
@@ -747,7 +751,7 @@ class PlaneProcessor:
             for newPoint in newData:
                 newX.append(newPoint[0])
                 newY.append(newPoint[1])
-            minX, minY, maxX, maxY = min(newX), min(newY), max(newX), max(newY)
+            minX, minY, maxX, maxY = min(newX)-self.minHoleSide, min(newY)-self.minHoleSide, max(newX)+self.minHoleSide, max(newY)+self.minHoleSide
 
             xmin, ymin = np.dot([minX, minY], self.pca.components_) + self.pca.mean_
             xmax, ymax = np.dot([maxX, maxY], self.pca.components_) + self.pca.mean_
@@ -774,7 +778,7 @@ class PlaneProcessor:
                     nPoints = 0
 
                     # print(i,j, square.intersects(outline))
-                    if(outline.contains(square)): #outline.intersects(square) or outline.contains(square)
+                    if(outline.intersects(square) or outline.contains(square)): #outline.intersects(square) or outline.contains(square)
                         for k in range(len(pointsDF)):
                             p = Point(pointsDF.x[k], pointsDF.y[k])
                             if(p.within(square)):

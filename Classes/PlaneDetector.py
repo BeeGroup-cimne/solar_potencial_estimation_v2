@@ -28,8 +28,8 @@ class PlaneDetector:
 
     def __init__(self, building, segmented_LiDAR, savePaths, generateFigures=True, 
                  heightThreshold=1, nGradient=5, ransacIterations=20, distanceThreshold=0.2, 
-                 minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=0.1, pdfExponent=2, 
-                 deleteFirst=True, readFromFile=False, fileSplit=None):
+                 minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=0.1, pdfExponent=2, densityMultiplier=0.5,
+                 deleteFirst=True):
         
         self.building = building
         self.segmented_LiDAR = segmented_LiDAR
@@ -48,8 +48,7 @@ class PlaneDetector:
         self.generateFigures = generateFigures 
         self.pdfExponent = pdfExponent
         self.deleteFirst = deleteFirst
-        self.readFromFile = readFromFile
-        self.fileSplit = fileSplit
+        self.densityMultiplier = densityMultiplier
 
     def __heightSplit(self, df, filter=True):
         """
@@ -198,7 +197,7 @@ class PlaneDetector:
         limits = p[hull.vertices,:]
         polygon = Polygon(limits)
         area = polygon.area
-        density = area/len(planePoints)
+        density = len(planePoints)/area
         return density
 
 
@@ -254,7 +253,7 @@ class PlaneDetector:
 
                 probabilities = [1/x for x in newpointsdf.distance]
                 
-                probabilities = np.power(probabilities, 1/self.pdfExponent) # This is done to further differences
+                probabilities = np.power(probabilities, self.pdfExponent) # This is done to further differences
                 # probabilities = np.where(probabilities > np.mean(probabilities), 1, 0)
                 probabilities = probabilities/sum(probabilities)
 
@@ -330,13 +329,13 @@ class PlaneDetector:
                     size = len(pointsInPlane)
                     std = np.sum(planePoints.dist)**2 / (len(planePoints) - 1)
                     density = PlaneDetector.__planeDensity(planePoints)
-                    newScore = size*std*density
-
-                    # If a good plane, check for std to decide if it is the best plane
-                    if(newScore > bestScore):
-                        bestPointsInPlane = pointsInPlane
-                        bestPlane = plane
-                        bestScore = newScore
+                    if(density > self.densityMultiplier*self.buildingDensity):
+                        # If a good plane, check for score to decide if it is the best plane
+                        newScore = size*std*density**2
+                        if(newScore > bestScore):
+                            bestPointsInPlane = pointsInPlane
+                            bestPlane = plane
+                            bestScore = newScore
 
 
      ########## This part is the original from before #############################
@@ -366,6 +365,8 @@ class PlaneDetector:
 
         heightGroups = self.__heightSplit(df)
 
+        self.buildingDensity = PlaneDetector.__planeDensity(df)
+
         for j in range(len(heightGroups)):
             print("Group:", j)
             self.currentGroup = heightGroups[j].copy().reset_index(drop=True)
@@ -378,7 +379,9 @@ class PlaneDetector:
             self.planePointsList = []
             notPlanePoints = self.currentGroup.copy()
 
-            while(len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)): #Need to redefine the stopping criteria
+            looping = True
+
+            while(looping): #Need to redefine the stopping criteria         # looping = len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)
                 # print("Another iteration")
                 bestPlane, planePoints, notPlanePoints = self.__ransac_ordered(notPlanePoints, min(self.minGlobalPercentage*len(self.currentGroup), self.minPartialPercentage*len(notPlanePoints)))
                 if(len(bestPlane) > 0):
@@ -415,6 +418,17 @@ class PlaneDetector:
                         for k in range(len(self.planePointsList)):
                             filename =  self.planePointsPath  + self.building.identifier[0] + "_Div_" + str(j) + "_plane " + str(k) + ".csv"
                             pd.DataFrame(self.planePointsList[k]).to_csv(filename, header=False, index=False)
+
+                # looping = len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)
+                # looping = (len(bestPlane) > 0)
+                minPoints = np.inf
+                for i in range(len(self.planePointsList)):
+                    minPoints = min(minPoints, len(self.planePointsList[i]))
+                
+                looping = ((len(notPlanePoints) > max(self.stoppingPercentage*len(self.currentGroup), minPoints)) or (len(bestPlane) > 0)) and (len(notPlanePoints) > 3) 
+                # if(len(notPlanePoints) < self.stoppingPercentage*len(self.currentGroup)): looping = False
+
+            print("\t Run out of iterations")         
 
             # if(self.generateFigures):
             #     fig = plt.figure()

@@ -33,9 +33,7 @@ class Plotter:
         
         _min, _max = np.amin(plottingMagnitude), np.amax(plottingMagnitude)
         
-        # norm = mpl.colors.Normalize(vmin=_min, vmax=_max)
-        bounds = list(range(100, 241, 20))
-        norm = mpl.colors.BoundaryNorm(bounds, cmap.N, extend='both')
+        norm = mpl.colors.Normalize(vmin=_min, vmax=_max)
         sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm) 
         sm.set_array([]) 
 
@@ -54,7 +52,6 @@ class Plotter:
                 cntr1 = ax.tricontourf(x, y, z, cmap=cmap, norm=norm, alpha=1)
 
             polygon = wkt.loads(planedf.trimmedPolygon[i])
-            # polygon = wkt.loads(planedf.polygon[i])
             exterior_x, exterior_y = polygon.exterior.xy
             exterior_x = exterior_x - centerx
             exterior_y = exterior_y - centery
@@ -87,7 +84,3 @@ class Plotter:
     @staticmethod
     def plotEnergyMap(building, processedResultsPath, segmented_path, pysamResultsPath):
         Plotter.plotMap(building, processedResultsPath, segmented_path, pysamResultsPath, "ac_annual")
-
-    @staticmethod
-    def plotRadiationMap(building, processedResultsPath, segmented_path, pysamResultsPath):
-        Plotter.plotMap(building, processedResultsPath, segmented_path, pysamResultsPath, "daily_radiation")

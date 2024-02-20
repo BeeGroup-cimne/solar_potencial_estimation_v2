@@ -174,7 +174,7 @@ class SolarEstimator:
         self.planeDetector.detectPlanes()
 
     # Step 4 - Plane processing (with multiple criteria)    
-    def processPlanes(self, generateFigures=True, **kwargs):
+    def processPlanes(self, srcCadaster=4326, generateFigures=True, **kwargs):
         cadastrePath = self.segmented_path + "/" + self.building.identifier[0] + ".gpkg"
         self.planeProcessor = PlaneProcessor(self.building, self.segmented_path, self.identifiedPaths, self.processedPaths, cadastrePath, generateFigures, **kwargs)
         self.planeProcessor.loadIdentifiedData()
@@ -199,11 +199,26 @@ class SolarEstimator:
         
         self.planeProcessor.deleteOverlaps()
         self.planeProcessor.pierce(cadastre=False)
-        self.planeProcessor.cadastreTrim(source=4326, target=self.srcLiDAR)
+        self.planeProcessor.cadastreTrim(source=srcCadaster, target=self.srcLiDAR)
         self.planeProcessor.exportResults()
 
     # Step 5 -Shading calculation
     def computeShading(self, generateFigures=True, **kwargs):
+        """
+    This function generates the shading matrices of the planes
+
+    #### Inputs:
+    - generateFigures: whether or not to export figures for each sampled point (and raySending). An average matrix plot for each plane will always be generated
+    - kwargs: see the Shader class __init__ function
+
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - .csv file of the generated matrices (average, and for each sampled point)
+    - if desired, individual matrix images and ray sending plot.
+        """
+
         if(generateFigures):
             self.shadingPath = self.shadingPath + " with figures"
         create_output_folder(self.shadingPath, deleteFolder=True)
@@ -222,25 +237,20 @@ class SolarEstimator:
     
     # Step 6 -PySAM simulation
     def simulatePySAM(self, tmyfile, generateFigures=False, ratio=float(0.450/2), **kwargs):
-        # planeListFile = self.processedPaths[0] + "PlaneList_" + self.building.identifier[0] + ".csv"
-        # self.planedf = pd.read_csv(planeListFile)
-        # create_output_folder(self.pysamResultsPath, deleteFolder=True)
+        """
+    This function generates the shading matrices of the planes
 
-        # for planeIDMatrix in range(len(self.planedf)):
-        #     self.pysam_simulator = PySAMSimulator(self.shadingPath, self.pysamResultsPath, self.planedf, planeIDMatrix, ratio, tmyfile, **kwargs)
-        #     self.pysam_simulator.runPySAMSimulation()
-        #     self.pysam_simulator.plotGenerationHeatmap()
+    #### Inputs:
+    - generateFigures: whether or not to export figures for each sampled point (and raySending). An average matrix plot for each plane will always be generated
+    - kwargs: see the Shader class __init__ function
 
-        #     if(multipleTilts and (self.planedf.tilt[planeIDMatrix] < 10)):
-        #         tilts = [0, 5, 10, 15, 20, 25, 30, 35, 40]
-        #         azimuths = [90, 135, 180, 215, 270]
-        #         for ti in tilts:
-        #             for az in azimuths:
-        #                 self.pysam_simulator.azimuth = az
-        #                 self.pysam_simulator.tilt = ti
-        #                 self.pysam_simulator.runPySAMSimulation()
-        #                 self.pysam_simulator.plotGenerationHeatmap()
+    #### Outputs:
+    - None
 
+    #### Exports:
+    - .csv file of the generated matrices (average, and for each sampled point)
+    - if desired, individual matrix images and ray sending plot.
+        """
 
         planeListFile = self.processedPaths[0] + "PlaneList_" + self.building.identifier[0] + ".csv"
         self.planedf = pd.read_csv(planeListFile)
@@ -293,7 +303,16 @@ class SolarEstimator:
         self.pySAMResults.to_csv(self.pysamResultsPath + "/Summary.csv", index=False)
 
     def plotEnergyMap(self):
-        Plotter.plotEnergyMap(self.building, self.processedPaths[0], self.segmented_path, self.pysamResultsPath)
+        """
+    This function plots an energy map, after simulating the solar generation
+
+    #### Inputs:
+    - None 
     
-    def plotRadiationMap(self):
-        Plotter.plotRadiationMap(self.building, self.processedPaths[0], self.segmented_path, self.pysamResultsPath)
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - .png file, corresponding to the total generation heatmap
+    """
+        Plotter.plotEnergyMap(self.building, self.processedPaths[0], self.segmented_path, self.pysamResultsPath)
