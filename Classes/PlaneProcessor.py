@@ -14,7 +14,6 @@ from matplotlib.patches import PathPatch
 from matplotlib.collections import PatchCollection
 from sklearn.decomposition import PCA
 from Functions.general_functions import create_output_folder
-from Classes.PlaneDetector import PlaneDetector
 
 class PlaneProcessor:
     def __init__(self, building, segmentedPath, identifiedPaths, processedPaths, cadastrePath, generateFigures=True,
@@ -96,7 +95,7 @@ class PlaneProcessor:
         dist = 0
         for i in range(len(pointsOtherPlane)):
             point = pointsOtherPlane[["x", "y", "z"]].iloc[i].values
-            dist = dist + PlaneDetector.distancePlane(point, plane)
+            dist = dist + PlaneProcessor.distancePlane(point, plane)
         return dist/len(pointsOtherPlane)
 
     def getClosestPlanes(self):
@@ -294,10 +293,37 @@ class PlaneProcessor:
             #plt.show()
             fig.savefig(filename)
             plt.close()
-            
-    
 
-            
+    def plot3d(self, name):
+        fig = plt.figure()
+        ax = fig.add_subplot(projection='3d')
+        color = iter(plt.cm.rainbow(np.linspace(0, 1, len(self.planePointList))))
+        _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, self.buildingPoints.z, c="Gray", marker=".", alpha = 0.1)
+        
+        for k in range(len(self.planePointList)):
+            c = next(color)
+            _ = ax.scatter(self.planePointList[k].x, self.planePointList[k].y, self.planePointList[k].z, color=c, label=k, marker=".")
+
+        ax.legend(loc="lower left")
+        ax.set_aspect('equal', adjustable='box')
+        filenameImage = self.processedImagesPath + name + '_Plane3D_' + ".png"
+        plt.savefig(filenameImage)
+        plt.close()
+
+    @staticmethod
+    def distancePlane(point, planeParams):
+        """
+    #### Inputs:
+    - point: 3-element array (x, y, z)
+    - planeParams: 4-element array (a, b, c, d)
+
+    #### Outputs: 
+    - dis: absolute value of the distance bettween the point and the plane
+        """
+        a, b, c, d = planeParams[0], planeParams[1], planeParams[2], planeParams[3]
+        x, y, z = point[0], point[1], point[2]
+        dis = a*x + b*y + c*z+ d
+        return abs(dis)
        
     def mergePlanes(self):
         """
@@ -324,7 +350,7 @@ class PlaneProcessor:
         inliers = []
         for i in range(len(planePointsMerged)): # We could sub planePointsMerged for self.buildingPoints
             point = planePointsMerged[["x", "y", "z"]].iloc[i]
-            if(PlaneDetector.distancePlane(point, plane) < self.planeDistanceThreshold):
+            if(PlaneProcessor.distancePlane(point, plane) < self.planeDistanceThreshold):
                 inliers.append(i)
 
         planeMergedInliers = planePointsMerged[["x", "y", "z"]].iloc[inliers].reset_index(drop=True) #pointsdf or planePointsMerged
@@ -336,7 +362,7 @@ class PlaneProcessor:
             inliers = []
             for i in range(len(planePointsMerged)): # We could sub planePointsMerged for pointsdf
                 point = planePointsMerged[["x", "y", "z"]].iloc[i]
-                if(PlaneDetector.distancePlane(point, plane) < self.planeDistanceThreshold):
+                if(PlaneProcessor.distancePlane(point, plane) < self.planeDistanceThreshold):
                     inliers.append(i)
 
             planeMergedInliers = planePointsMerged[["x", "y", "z"]].iloc[inliers].reset_index(drop=True) #pointsdf or planePointsMerged
@@ -410,10 +436,7 @@ class PlaneProcessor:
             df = df.rename(columns={0: "x", 1: "y", 2:"z"})
             self.planePointList.append(df)
 
-        # Get the building points
-        # print(len(self.planedf))
-        # print(len(self.planePointList))
-    
+        # Get the building points  
         self.buildingPoints = pd.read_csv((self.segmentedPath + "/" + self.building.identifier[0] + ".csv"), header=None)
         self.buildingPoints = self.buildingPoints.rename(columns={0: "x", 1: "y", 2:"z"})
         
@@ -839,4 +862,5 @@ class PlaneProcessor:
         # self.splitPlaneParams.columns = self.planedf.columns
         name = "4 - Cadastre Trimmed - " + self.building.identifier[0]
         self.plotPlanes(name, showTrimmed=True)
+        self.plot3d(name)
         self.exportPlanedf.to_csv(planeFile, header=True, index=False)  

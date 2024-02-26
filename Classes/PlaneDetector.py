@@ -14,22 +14,43 @@ from scipy.spatial import ConvexHull
 
 class PlaneDetector:
     """
-    Used for 
+    Used for clustering the point cloud into different planes, appling RANSAC
     
     ### Attributes: 
     #### Defined upon initialization:
-    - 
+    - building: single row dataframe containing at least the following fields: identifier, x, y
+    - segmented_LiDAR
+    - planeListPath
+    - planePointsPath
+    - imagesPath: where to export the generated figures
+    - generateFigures: whether or not to export figures of the whole process
+    - heightThreshold: minimum vertical distance between consecutive points (when ordered by altitude) to consider that they belong to different clusters
+    - deleteFirst: whether or not to delete the first group when spliting by height (if there is only one group, it is never deleted)
+    - nGradient
+    - ransacIterations
+    - distanceThreshold
+    - minGlobalPercentage
+    - minPartialPercentage
+    - stoppingPercentage
+    - pdfExponent
+    - densityMultiplier
+
     #### Self-generated:
-    - 
+    - buildingPoints: dataframe containing all the points (x, y, z) of the building
+    - heightGroupDensity:
+    - currentGroup:
+    - planeList:
+    - planePointsList:
 
     ### Public methods:
-    - 
+    - score: function to asses how goood a plane is, based on (size, std, density). Thi method is thought to be redefined from outside this class
+    - detectPlanes: given the building points, find the planes
     """
 
     def __init__(self, building, segmented_LiDAR, savePaths, generateFigures=True, 
-                 heightThreshold=1, nGradient=5, ransacIterations=20, distanceThreshold=0.2, 
-                 minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=0.1, pdfExponent=2, densityMultiplier=0.5,
-                 deleteFirst=True):
+                 heightThreshold=1, deleteFirst=True, 
+                 nGradient=5, ransacIterations=20, distanceThreshold=0.2, 
+                 minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=0.1, pdfExponent=2, densityMultiplier=0.5):
         
         self.building = building
         self.segmented_LiDAR = segmented_LiDAR
@@ -50,16 +71,24 @@ class PlaneDetector:
         self.deleteFirst = deleteFirst
         self.densityMultiplier = densityMultiplier
 
-    def __heightSplit(self, df, filter=True):
+    def __heightSplit(self, filter=True):
         """
-        Given a dataframe, sorts points by height and splits it in groups separated by a threshold height difference
-        If filter = True, deletes first group (ground points) and groups made of 3 points or less 
+        Given a dataframe, sorts points by height and splits it in groups separated by a threshold height difference (defined in the class initialization)
+       
+        #### Inputs:
+        - filter: If filter = True, deletes first group (ground points) and groups made of 3 points or less 
+
+        #### Outputs:
+        - filteredHeightGroups: list containing the points in the building (without the filtered ones, if it applies) in their respective heightgroup (ordered by height).
+
+        #### Exports:
+        - if generateFigures, it exports two images: one corresponding to the point height histogram (to "see" where the heightgroups should be split), and another of the data cloud colorcoded by heightgroups.
         """
 
-        # Now filter
+        # Prepare dataframe and split
 
-        newdf = df.sort_values("z").copy().reset_index(drop=True)
-        newdf["deltaZ"] = np.concatenate(([0], newdf.z[1:len(df)].values - newdf.z[0:len(df)-1].values))
+        newdf = self.buildingPoints.copy().sort_values("z").reset_index(drop=True)
+        newdf["deltaZ"] = np.concatenate(([0], newdf.z[1:len(self.buildingPoints)].values - newdf.z[0:len(self.buildingPoints)-1].values))
 
         heightGroups = []
         lastSplit = 0
@@ -72,7 +101,7 @@ class PlaneDetector:
         # Append "final group"
         if(lastSplit != i):
             heightGroups.append(newdf.iloc[lastSplit:i])
-        
+            
         # Filter, if wanted
         if(not filter): 
             return heightGroups
@@ -99,9 +128,9 @@ class PlaneDetector:
         if(self.generateFigures):
             fig = plt.figure()
             ax = fig.add_subplot()
-            nbins = int((math.ceil(df.z.max() - df.z.min()))/self.heightThreshold)
+            nbins = int((math.ceil(self.buildingPoints.z.max() - self.buildingPoints.z.min()))/self.heightThreshold)
             # ax.hist(x=df.z, bins='auto', color='#0504aa', alpha=0.7, rwidth=0.85)
-            ax.hist(x=df.z, bins=nbins, color='#0504aa', alpha=0.7, rwidth=0.85)
+            ax.hist(x=self.buildingPoints.z, bins=nbins, color='#0504aa', alpha=0.7, rwidth=0.85)
             filenameImage = self.imagesPath + self.building.identifier[0] + "_HeightHistogram.png"
             plt.savefig(filenameImage)
             plt.close()
@@ -109,7 +138,7 @@ class PlaneDetector:
             fig = plt.figure()
             ax = fig.add_subplot()
             color = iter(plt.cm.rainbow(np.linspace(0, 1, len(filteredHeightGroups))))
-            _ = ax.scatter(df.x, df.y, c="Gray", marker=".", alpha = 0.1)
+            _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, c="Gray", marker=".", alpha = 0.1)
             
             for k in range(len(filteredHeightGroups)):
                 c = next(color)
@@ -126,6 +155,15 @@ class PlaneDetector:
     def __closestPoints(self, point,):
         """
         Returns the nGradient closests points to the given point
+
+        #### Inputs:
+        - 
+
+        #### Outputs:
+        - 
+
+        #### Exports:
+        - 
         """
         byDistance = self.currentGroup.copy()
         byDistance["distance"] = np.sqrt((byDistance.x - point.x)**2 + (byDistance.y - point.y)**2)
@@ -135,6 +173,15 @@ class PlaneDetector:
     def __partialGradient(self, point, neighbors):
         """
         Calculates the gradient of a given point given a list of its closest neighbors
+
+        #### Inputs:
+        - 
+
+        #### Outputs:
+        - 
+
+        #### Exports:
+        - 
         """
         grad = [0,0]
         for i in range(len(neighbors)):
@@ -148,12 +195,30 @@ class PlaneDetector:
     def __gradient(self, point):
         """
         Given a point and a dataframe, obtains its closest neighbors and calculates the gradient (merges __closestPoints() and __partialGradient())
+
+        #### Inputs:
+        - 
+
+        #### Outputs:
+        - 
+
+        #### Exports:
+        - 
         """
         return self.__partialGradient(point, self.__closestPoints(point))
 
     def __computeGradient(self):
         """
         Calculates the gradient of all points in a given dataframe
+
+        #### Inputs:
+        - 
+
+        #### Outputs:
+        - 
+
+        #### Exports:
+        - 
         """
         for index,point in self.currentGroup.iterrows():
             self.currentGroup.loc[index,"gradientX"],self.currentGroup.loc[index,"gradientY"] = self.__gradient(point)
@@ -164,7 +229,7 @@ class PlaneDetector:
         return self.currentGroup
 
     @staticmethod
-    def distancePlane(point, planeParams):
+    def __distancePlane(point, planeParams):
         """
     #### Inputs:
     - point: 3-element array (x, y, z)
@@ -182,6 +247,15 @@ class PlaneDetector:
     def __planeDensity(planePoints):
         """
         Given a list of points (x and y coordinates), returns the plane density
+
+        #### Inputs:
+        - 
+
+        #### Outputs:
+        - 
+
+        #### Exports:
+        - 
         """
 
         x = planePoints["x"].values
@@ -199,21 +273,36 @@ class PlaneDetector:
         area = polygon.area
         density = len(planePoints)/area
         return density
+    
+    @staticmethod
+    def score(size, std, density):
+        return size*std*density**2
 
 
-    def __ransac_ordered(self, pointsdf, minPoints): #n = 3
+    def __ransac_ordered(self, pointsToIdentifydf, minPoints): #n = 3
         """
         Given a dataframe, find a plane by applying RANSAC (with a given number of iterations).
         Points are inliers if the distance is above the thresholdDistance
         Planes are valid if they have more than minPoints inliers
+
+        #### Inputs:
+        - 
+
+        #### Outputs:
+        - 
+
+        #### Exports:
+        - 
         """
         
+        pointsdf = pointsToIdentifydf.copy()
         # Returns the best point only for that data
         
         bestPlane = []
         bestStd = np.inf
         bestScore = 0
         bestPointsInPlane = []
+        
 
         if(minPoints < len(pointsdf)):
 
@@ -317,21 +406,21 @@ class PlaneDetector:
                 # Check for all points in the dataset that can belong to this plane (distance below threshold)
                 for j in range(len(pointsdf)):
                     point = pointsdf[["x", "y", "z"]].iloc[j]
-                    pointsdf.loc[j, "dist"] = PlaneDetector.distancePlane(point, plane)
+                    pointsdf.loc[j, "dist"] = PlaneDetector.__distancePlane(point, plane)
                     if(pointsdf.loc[j, "dist"] < self.distanceThreshold):
                         pointsInPlane.append(j)
 
                 planePoints = pointsdf[["x", "y", "z", "dist"]].iloc[pointsInPlane]
-                notPlanePoints = pointsdf[["x", "y", "z"]].copy().drop(pointsInPlane, axis = 0)
+                # notPlanePoints = pointsdf[["x", "y", "z"]].copy().drop(pointsInPlane, axis = 0)
 
      ########## This part is modified #############################
                 if(len(planePoints) > minPoints):
                     size = len(pointsInPlane)
                     std = np.sum(planePoints.dist)**2 / (len(planePoints) - 1)
                     density = PlaneDetector.__planeDensity(planePoints)
-                    if(density > self.densityMultiplier*self.buildingDensity):
+                    if(density > self.densityMultiplier*self.heightGroupDensity):
                         # If a good plane, check for score to decide if it is the best plane
-                        newScore = size*std*density**2
+                        newScore = PlaneDetector.score(size, std, density,)
                         if(newScore > bestScore):
                             bestPointsInPlane = pointsInPlane
                             bestPlane = plane
@@ -349,25 +438,41 @@ class PlaneDetector:
                 #         bestPlane = plane
                 #         bestStd = newStd
         
-        planePoints = pointsdf[["x", "y", "z", "dist"]].iloc[bestPointsInPlane].reset_index(drop=True)
-        notPlanePoints = pointsdf[["x", "y", "z","angleGradientDeg"]].copy().drop(bestPointsInPlane, axis = 0).sort_values(by=["angleGradientDeg"]).reset_index(drop=True)
-        # print("\t", bestPlane)
-        # Return plane parameters and points inside roof
+        planePoints = pointsdf.copy().loc[pointsdf.index.isin(bestPointsInPlane)].reset_index(drop=True)
+        planePoints = planePoints[["x", "y", "z", "dist"]]
+
+        notPlanePoints = pointsdf.copy().loc[~pointsdf.index.isin(bestPointsInPlane)].sort_values(by=["angleGradientDeg"]).reset_index(drop=True)
+        notPlanePoints = notPlanePoints[["x", "y", "z","angleGradientDeg"]]
+        # notPlanePoints = pointsdf[["x", "y", "z","angleGradientDeg"]].copy().drop(pointsInPlane, axis = 0).sort_values(by=["angleGradientDeg"]).reset_index(drop=True)
         return bestPlane, planePoints, notPlanePoints
 
     def detectPlanes(self):
+        """
+        What it does
+
+        #### Inputs:
+        - 
+
+        #### Outputs:
+        - 
+
+        #### Exports:
+        - 
+        """
         create_output_folder(self.planePointsPath, deleteFolder=True)
         create_output_folder(self.planeListPath, deleteFolder=True)
         create_output_folder(self.imagesPath, deleteFolder=True)
 
-        df = pd.read_csv((self.segmented_LiDAR + "/" + self.building.identifier[0] + ".csv"), header=None)
-        df = df.rename(columns={0: "x", 1: "y", 2:"z"})
+        self.buildingPoints = pd.read_csv((self.segmented_LiDAR + "/" + self.building.identifier[0] + ".csv"), header=None)
+        self.buildingPoints = self.buildingPoints.rename(columns={0: "x", 1: "y", 2:"z"})
 
-        heightGroups = self.__heightSplit(df)
-
-        self.buildingDensity = PlaneDetector.__planeDensity(df)
+        heightGroups = self.__heightSplit()
+        print("Split into", len(heightGroups), "height groups")
 
         for j in range(len(heightGroups)):
+            self.heightGroupDensity = PlaneDetector.__planeDensity(heightGroups[j])
+
+
             print("Group:", j)
             self.currentGroup = heightGroups[j].copy().reset_index(drop=True)
 
@@ -378,16 +483,20 @@ class PlaneDetector:
             self.planeList = []
             self.planePointsList = []
             notPlanePoints = self.currentGroup.copy()
-
+            print('\t Starting with', len(notPlanePoints), 'points')
+            
             looping = True
+            previousEmpty = False
 
             while(looping): #Need to redefine the stopping criteria         # looping = len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)
                 # print("Another iteration")
+                
                 bestPlane, planePoints, notPlanePoints = self.__ransac_ordered(notPlanePoints, min(self.minGlobalPercentage*len(self.currentGroup), self.minPartialPercentage*len(notPlanePoints)))
                 if(len(bestPlane) > 0):
                     self.planeList.append(bestPlane)
                     self.planePointsList.append(planePoints[["x","y","z"]])
-                    print("\t Found plane. Percentatge remaining:", len(notPlanePoints)/len(heightGroups[j]))
+                    print('\t\t', len(planePoints), 'points identified,', len(notPlanePoints), 'points remaining')
+                    print("\t\t Found plane. Percentatge remaining:", len(notPlanePoints)/len(heightGroups[j]))
                    
                     for k in range(len(self.planePointsList)):
                         filenamePoints =  self.planePointsPath + self.building.identifier[0] + "_Div_" + str(j) + "_plane " + str(k) + ".csv"
@@ -400,7 +509,7 @@ class PlaneDetector:
                         fig = plt.figure()
                         ax = fig.add_subplot()
                         color = iter(plt.cm.rainbow(np.linspace(0, 1, len(self.planePointsList))))
-                        _ = ax.scatter(df.x, df.y, c="Gray", marker=".", alpha = 0.1)
+                        _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, c="Gray", marker=".", alpha = 0.1)
                         
                         for k in range(len(self.planePointsList)):
                             filenamePoints =  self.planePointsPath + self.building.identifier[0] + "_Div_" + str(j) + "_plane " + str(k) + ".csv"
@@ -421,15 +530,38 @@ class PlaneDetector:
 
                 # looping = len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)
                 # looping = (len(bestPlane) > 0)
+                            
                 minPoints = np.inf
                 for i in range(len(self.planePointsList)):
                     minPoints = min(minPoints, len(self.planePointsList[i]))
                 
-                looping = ((len(notPlanePoints) > max(self.stoppingPercentage*len(self.currentGroup), minPoints)) or (len(bestPlane) > 0)) and (len(notPlanePoints) > 3) 
+                # looping = ((len(notPlanePoints) > max(self.stoppingPercentage*len(self.currentGroup), minPoints)) or (len(bestPlane) > 0)) and (len(notPlanePoints) > 3) 
+                looping = (not previousEmpty or (len(bestPlane) > 0)) and (len(notPlanePoints) > 3)
                 # if(len(notPlanePoints) < self.stoppingPercentage*len(self.currentGroup)): looping = False
 
-            print("\t Run out of iterations")         
+                previousEmpty = len(bestPlane) == 0
 
+            print("\t Run out of iterations.", len(notPlanePoints), 'points left')   
+
+            if(self.generateFigures):
+
+                fig = plt.figure()
+                ax = fig.add_subplot(projection='3d')
+                color = iter(plt.cm.rainbow(np.linspace(0, 1, len(self.planePointsList))))
+                _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, c="Gray", marker=".", alpha = 0.1)
+                
+                for k in range(len(self.planePointsList)):
+                    filenamePoints =  self.planePointsPath + self.building.identifier[0] + "_Div_" + str(j) + "_plane " + str(k) + ".csv"
+                    pd.DataFrame(self.planePointsList[k]).to_csv(filenamePoints, header=False, index=False) 
+                    c = next(color)
+                    _ = ax.scatter(self.planePointsList[k].x, self.planePointsList[k].y, self.planePointsList[k].z, color=c, label=k, marker=".")
+
+                ax.legend(loc="lower left")
+                ax.set_aspect('equal', adjustable='box')
+                filenameImage = self.imagesPath + self.building.identifier[0] + '_Plane3D_' + str(j) + ".png"
+                plt.savefig(filenameImage)
+                plt.close()
+                
             # if(self.generateFigures):
             #     fig = plt.figure()
             #     ax = fig.add_subplot()
