@@ -23,6 +23,7 @@ class Shader:
     - STL_path: path with the .stl file of the neighborhood (to shade)
     - planes_path: path where the files relative to the plane (plane list and points within plane) are
     - shadingResultsPath: path to store the shading results
+    ##### Attributes with default values
     - Nsamples: maximum number of points to be sampled from a plane. This is orientative, as it does not count sampling the plane outline, and is not correct for planes with irregular shape
     - div: minimum distance between sampled points. This ensures that, for smaller planes, (if Nsamples is too high) the sampling does not become redundant 
     - anglesAzimuth: array with the minimum and maximum angles to sweep [angleMin, angleMax]. Azimuth begins at North=0º and positive goes clockwise

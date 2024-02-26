@@ -161,14 +161,16 @@ class SolarEstimator:
 
     #### Inputs:
     - generateFigures: whether or not to export figures of the identified planes
-    ##### **kwargs:
-    - 
+    - **kwargs: see the PlaneDetector documentation (default attributes)
     
     #### Outputs:
     - None
 
     #### Exports:
-    - 
+    - if generateFigures, it exports two images: one corresponding to the point height histogram (to "see" where the heightgroups should be split), and another of the data cloud colorcoded by heightgroups.
+    - For each heightgroup, a .csv file containing all the planes (parameters a,b,c,d) found in that heightgroup
+    - For each plane found, a .csv file containing all the points (x,y,z) that belong to that plane
+    - if generateFigures: it exports images of the step by step solution, as well as 3d scatters of each level once it is finished
         """
         self.planeDetector = PlaneDetector(self.building, self.segmented_path, self.identifiedPaths, generateFigures, **kwargs)
         self.planeDetector.detectPlanes()
@@ -209,7 +211,7 @@ class SolarEstimator:
 
     #### Inputs:
     - generateFigures: whether or not to export figures for each sampled point (and raySending). An average matrix plot for each plane will always be generated
-    - kwargs: see the Shader class __init__ function
+    - **kwargs: see the Shader documentation (default attributes)
 
     #### Outputs:
     - None
@@ -236,20 +238,21 @@ class SolarEstimator:
                 self.shader.plotShadingMatrix(plotAll=True)
     
     # Step 6 -PySAM simulation
-    def simulatePySAM(self, tmyfile, generateFigures=False, ratio=float(0.450/2), **kwargs):
+    def simulatePySAM(self, tmyfile, generateFigures=False, ratio=float(0.450/2)):
         """
     This function generates the shading matrices of the planes
 
     #### Inputs:
+    - tmyfile: .csv of the TMYfile, must be otained from NREL (https://nsrdb.nrel.gov/data-viewer) or converted to the same format
     - generateFigures: whether or not to export figures for each sampled point (and raySending). An average matrix plot for each plane will always be generated
-    - kwargs: see the Shader class __init__ function
+    - ratio: watts per square meter ratio. This is used because the simulator needs, as an input, a solar capactiy, not an area.
 
     #### Outputs:
     - None
 
     #### Exports:
-    - .csv file of the generated matrices (average, and for each sampled point)
-    - if desired, individual matrix images and ray sending plot.
+    - .csv file containing the hourly generation in a yera of each sampled point solar simulation and a .csv of the summary
+    - if generateFigures, a heatmap for the building generation is generated.
         """
 
         planeListFile = self.processedPaths[0] + "PlaneList_" + self.building.identifier[0] + ".csv"
@@ -283,7 +286,7 @@ class SolarEstimator:
                 shadingMatrixPath = self.shadingPath + "/" + str(planeIDMatrix) + "/Individual Matrices/" + str(i).zfill(2) + ".csv"
                 resultsPath = self.pysamResultsPath + "/Yearly Results/" + str(planeIDMatrix) + "_"  + str(i).zfill(2)
                 
-                self.pysam_simulator = PySAMSimulator(shadingMatrixPath, resultsPath, self.planedf, planeIDMatrix, ratio, tmyfile, **kwargs)
+                self.pysam_simulator = PySAMSimulator(shadingMatrixPath, resultsPath, self.planedf, planeIDMatrix, ratio, tmyfile)
                 simulationResults = self.pysam_simulator.runPySAMSimulation()
                 acAnnuals.append(simulationResults["ac_annual"])
                 radiationAnnuals.append(simulationResults["solrad_annual"])
