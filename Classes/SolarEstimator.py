@@ -180,7 +180,7 @@ class SolarEstimator:
         cadastrePath = self.segmented_path + "/" + self.building.identifier[0] + ".gpkg"
         self.planeProcessor = PlaneProcessor(self.building, self.segmented_path, self.identifiedPaths, self.processedPaths, cadastrePath, generateFigures, **kwargs)
         self.planeProcessor.loadIdentifiedData()
-        self.planeProcessor.plotPlanes("From RANSAC" + self.building.identifier[0])
+        self.planeProcessor.plotPlanes("From RANSAC_" + self.building.identifier[0])
 
         i = 0
         # print("Iteration: ", i)
