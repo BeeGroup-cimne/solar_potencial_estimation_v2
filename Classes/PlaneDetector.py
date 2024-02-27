@@ -43,7 +43,24 @@ class PlaneDetector:
                  heightThreshold=1, deleteFirst=True, 
                  nGradient=5, ransacIterations=20, distanceThreshold=0.2, 
                  minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=0.1, pdfExponent=2, densityMultiplier=0.5):
-        
+        """
+    #### Inputs:
+    - building: single row dataframe containing at least the following fields: identifier, x, y
+    - segmented_LiDAR: file (.csv or .txt) of the building point cloud
+    - savePaths, array containing planeListPath, planePointsPath and imagesPath
+    ##### with default values
+    - generateFigures: whether or not to export figures of the whole process
+    - heightThreshold: minimum vertical distance between consecutive points (when ordered by altitude) to consider that they belong to different clusters
+    - deleteFirst: whether or not to delete the first group when spliting by height (if there is only one group, it is never deleted)
+    - nGradient: how many neighbors to consider when computing the gradient
+    - ransacIterations: how many iterations will perform the RANSAC algorithm
+    - distanceThreshold: maximum distance a point can be from a plane to be considered an inlier
+    - minGlobalPercentage: percentage of point needed for a plane to be valid, relative to the whole heightgroup
+    - minPartialPercentage: percentage OF THE REMAINING POINTS needed for a plane to be valid. When in conflict with minGlobalPercentage, the one that implies less points prevails.
+    - stoppingPercentage (currently not used): maximum percentatge of remaining
+    - pdfExponent: exponent applied to the probability density functions to the gradient and distance distribution for RANSAC starting points sampling
+    - densityMultiplier: for density filtering, ratio (regarding the density of the current Heightgroup) a plane must have to be valid
+        """
         self.building = building
         self.segmented_LiDAR = segmented_LiDAR
 

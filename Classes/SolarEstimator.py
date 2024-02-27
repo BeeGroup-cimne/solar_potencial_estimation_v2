@@ -176,10 +176,31 @@ class SolarEstimator:
         self.planeDetector.detectPlanes()
 
     # Step 4 - Plane processing (with multiple criteria)    
-    def processPlanes(self, srcCadaster=4326, generateFigures=True, **kwargs):
+    def processPlanes(self, crsCadaster=4326, generateFigures=True, **kwargs):
+        """
+    This function processes the planes found in the previous step:
+    - Merges planes that are too similar.
+    - Splits planes if there are density discontinuities
+    - Deletes planes of bad quality.
+    - Deletes overlaps.
+    - Pierces holes.
+    - Trims according to cadastre limits
+
+    #### Inputs:
+    - crsCadaster: coordinate reference system of the cadaster files (used for trimming)
+    - generateFigures: whether or not to export figures of the processed planes (currently, this variable is not used)
+    - **kwargs: see the PlaneDetector documentation (default attributes)
+    
+    #### Outputs:
+    - None
+
+    #### Exports:
+    - .csv of all the parameters of each plane (as well as area, tilt, azimuth and polygon definition)
+    - .png image of the 3D scatter plot
+    - .png image of the 2D scatter plot + regions plot
+        """
         cadastrePath = self.segmented_path + "/" + self.building.identifier[0] + ".gpkg"
         self.planeProcessor = PlaneProcessor(self.building, self.segmented_path, self.identifiedPaths, self.processedPaths, cadastrePath, generateFigures, **kwargs)
-        self.planeProcessor.loadIdentifiedData()
         self.planeProcessor.plotPlanes("From RANSAC_" + self.building.identifier[0])
 
         i = 0
@@ -201,7 +222,7 @@ class SolarEstimator:
         
         self.planeProcessor.deleteOverlaps()
         self.planeProcessor.pierce(cadastre=False)
-        self.planeProcessor.cadastreTrim(source=srcCadaster, target=self.srcLiDAR)
+        self.planeProcessor.cadasterTrim(source=crsCadaster, target=self.srcLiDAR)
         self.planeProcessor.exportResults()
 
     # Step 5 -Shading calculation
