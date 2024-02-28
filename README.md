@@ -10,7 +10,7 @@ This was tested on a custom anaconda environment using a Jupyter Notebook. Check
 
 ## Data Preparation
 
-- <span style="color:lime"> Code working </span>.
+- <span style="color:lime"> Code working </span>
 - <span style="color:lime"> Documentation </span>
 
 ## Solar Estimation
