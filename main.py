@@ -70,4 +70,4 @@ if __name__ =="__main__":
         building = buildings[buildings.identifier == buildingID].reset_index(drop=True)
         simulateBuilding(building, simulationPaths, crsCadaster, crsLiDAR)
     
-    print("Done")
+    print("Simulation done")
