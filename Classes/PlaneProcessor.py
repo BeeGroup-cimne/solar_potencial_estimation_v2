@@ -28,18 +28,46 @@ class PlaneProcessor:
     
     ### Attributes: 
     #### Defined upon initialization:
-    - 
+    - building = building 
+    - segmentedPath = segmentedPath
+    - planeListPath = identifiedPaths[0]
+    - planePointsPath = identifiedPaths[1]
+    - processedResultsPath = processedPaths[0]
+    - processedImagesPath = processedPaths[1]
+    - cadastrePath = cadastrePath
+    - generateFigures = generateFigures
     ##### Attributes with default values
-    - 
+    - planeDistanceThreshold = planeDistanceThreshold
+    - angleThreshold = angleThreshold
+    - mergeReiterations = mergeReiterations
+    - splitDistanceThreshold = splitDistanceThreshold
+    - angleSplitIncrement = angleSplitIncrement
+    - minPointsDelete = minPointsDelete
+    - minAreaDelete = minAreaDelete
+    - minDensityDelete = minDensityDelete
+    - parallelismAngleThreshold = parallelismAngleThreshold
+    - slidingHole = slidingHole
+    - minHoleSide = minHoleSide
+
     #### Self-generated:
-    - 
+    - planedf
+    - planePointList
+    - buildingPoints
+    - exportPlanedf
 
     ### Public methods:
-    - 
+    - plotPlanes: generates a plot of the the points and polygon for each plane (colorcoded) 
+    - merge: merges are the planes that are similar (that means, that they are close to each other and have small angle of difference)
+    - splitDelete: splits all planes in regions of points that are too far apart. Checks if the resulting planes are of good quality and, if not, it deletes them.
+    - deleteOverlaps: deletes areas from one plane that overlap in the other. A higher level overlap will always be deleting on the lower plane. For planes in the same height group, the highest plane will make a hole on the lowest plane. This method shoulld be upgraded to consider non-paral·lel overlaps
+    - pierce: checks for empty areas inside every region and makes a square hole in them
+    - cadasterTrim: trims all polygons to be only inside the limits of cadaster.
+    - exportResults: exports the final results in a .csv file. It also generates a final plot and 3d scatter
+    - plot3d: plots a 3D scatter of the points for each plane (colorcoded) 
     """
     def __init__(self, building, segmentedPath, identifiedPaths, processedPaths, cadastrePath, generateFigures=True,
                  planeDistanceThreshold=0.5, angleThreshold=10, mergeReiterations=10, splitDistanceThreshold = 2, angleSplitIncrement=5,
-                 minPointsDelete=6, minAreaDelete=5, minDensityDelete=0.25, convexHullHorizon = 5, parallelismAngleThreshold=5, slidingHole=0.75, minHoleSide = 3):
+                 minPointsDelete=6, minAreaDelete=5, minDensityDelete=0.25, parallelismAngleThreshold=5, slidingHole=0.75, minHoleSide = 3):
         self.building = building 
         self.segmentedPath = segmentedPath
         self.planeListPath = identifiedPaths[0]
@@ -59,7 +87,6 @@ class PlaneProcessor:
         self.minAreaDelete = minAreaDelete
         self.minDensityDelete = minDensityDelete
         self.parallelismAngleThreshold = parallelismAngleThreshold
-        self.convexHullHorizon = convexHullHorizon
         self.slidingHole = slidingHole
         self.minHoleSide = minHoleSide
 
@@ -800,12 +827,12 @@ class PlaneProcessor:
         for j in range(len(cadastreNewCoords[0])):
             p.append((cadastreNewCoords[0][j], cadastreNewCoords[1][j]))
 
-        self.actualLimitsCadastre = Polygon(p)
+        actualLimitsCadastre = Polygon(p)
         
         cadastreTrimmed = []
         
         for i in range(len(self.exportPlanedf)):
-            cadastreTrimmed.append(self.exportPlanedf.polygon[i].intersection(self.actualLimitsCadastre))
+            cadastreTrimmed.append(self.exportPlanedf.polygon[i].intersection(actualLimitsCadastre))
             self.exportPlanedf.area[i] = cadastreTrimmed[i].area*1/math.cos(self.exportPlanedf.tilt[i]*math.pi/180)
         
         self.exportPlanedf["trimmedPolygon"] = cadastreTrimmed
