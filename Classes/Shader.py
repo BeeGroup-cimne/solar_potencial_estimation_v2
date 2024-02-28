@@ -7,7 +7,6 @@ from shapely.geometry import Point # Points
 from scipy.spatial import ConvexHull # Create polygon
 import math # Trigonometric functions
 from Functions.general_functions import create_output_folder
-from Classes.PlaneProcessor import PlaneProcessor
 import shapely.wkt, shapely.affinity
 from sklearn.decomposition import PCA
 
@@ -271,7 +270,7 @@ class Shader:
 
                     # Only send rays if the ray doesn't intersect the plane
 
-                    if(abs(PlaneProcessor.anglesVectors(ray_directions[0], normal)) < 90):
+                    if(abs(Shader.__anglesVectors(ray_directions[0], normal)) < 90):
 
                         loc_intersects, n_intersection, _ = self.mesh.ray.intersects_location(ray_origins, ray_directions)
 
@@ -313,6 +312,25 @@ class Shader:
             savename = self.planeResultsPath + "Average_" +  str(self.planeID) + ".csv"
             self.averageMatrix.to_csv(savename)
 
+    @staticmethod
+    def __anglesVectors(u, v):
+        """
+        Given two vectors (for this project, they are two planes normals), it computes the angle (in degrees) between them
+        #### Inputs:
+        - u, v: two vector (each vector is a 3-element array containing the x,y,z components)
+
+        #### Outputs: 
+        - Angle between the two vectors (in degrees)
+        """
+        moduleU = math.sqrt(u[0]**2 + u[1]**2 + u[2]**2)
+        moduleV = math.sqrt(v[0]**2 + v[1]**2 + v[2]**2)
+        dotProduct = u[0]*v[0] + u[1]*v[1] + u[2]*v[2]
+        cosTheta = dotProduct/(moduleU*moduleV)
+        if(cosTheta > 1): # Yep, this can happen
+            cosTheta = 1
+        elif(cosTheta < -1):
+            cosTheta = -1
+        return math.acos(cosTheta)*180/math.pi
 
     def plotShadingMatrix(self, plotAll=False):
         """

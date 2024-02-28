@@ -1,6 +1,6 @@
 from Functions.general_functions import create_output_folder
 import pandas as pd # Handle dataframes
-import pyproj # Convert building and cadastre to new coordinate system
+import pyproj # Convert building and cadaster to new coordinate system
 import os # Get list of files within a directory
 import subprocess  # To work with lastools .exe files
 
@@ -14,31 +14,31 @@ import processing
 
 class DataPreparator:
     """
-    Used for preparing the data files of the building list, cadastre and LiDAR
+    Used for preparing the data files of the building list, cadaster and LiDAR
     
     ### Attributes:
     #### Defined upon initialization:
     - buildings_path: .csv or .txt containing the building info. The following 3 fields are required (with these names): identifier, lat, long. Files must be prepared to have this 3 columns or the function must be redefined
-    - cadastre_path: Directory containing all the cadastre geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
+    - cadaster_path: Directory containing all the cadaster geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
     - LiDAR_path: Directory containing all the LiDAR files, AND ONLY THE LiDAR FILES (extensions: .laz, or .txt/.csv)
     - output_path: Directory where exports need to be saved (if the folder does not exist, it will be created)
 
     ### Public methods:
     - prepare_buildings: converts a list of buildings to the specified crs (i.e. that of LiDAR data). It also filters for buildings with the same coordinates
-    - prepare_cadastre: exports a list with all the cadastre files in a given directory with the min and max corners of each file, in the specified crs (i.e., that of the LiDAR data)
+    - prepare_cadaster: exports a list with all the cadaster files in a given directory with the min and max corners of each file, in the specified crs (i.e., that of the LiDAR data)
     - prepare_LiDAR: exports a .csv with the list of all the LiDAR files in a directory and their limits. It also needs the paht of LAStools, because if there is a .laz file, it is first converted to .csv
     """
             
-    def __init__(self, buildings_path, cadastre_path, LiDAR_path, output_path):
+    def __init__(self, buildings_path, cadaster_path, LiDAR_path, output_path):
         """
     #### Inputs:
     - buildings_path: .csv or .txt containing the building info. The following 3 fields are required (with these names): identifier, lat, long. Files must be prepared to have this 3 columns or the function must be redefined
-    - cadastre_path: Directory containing all the cadastre geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
+    - cadaster_path: Directory containing all the cadaster geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
     - LiDAR_path: Directory containing all the LiDAR files, AND ONLY THE LiDAR FILES (extensions: .laz, or .txt/.csv)
     - output_path: Directory where exports need to be saved (if the folder does not exist, it will be created)
         """
         self.buildings_path = buildings_path
-        self.cadastre_path = cadastre_path
+        self.cadaster_path = cadaster_path
         self.LiDAR_path = LiDAR_path
         self.output_path = output_path
 
@@ -157,17 +157,17 @@ class DataPreparator:
         buildings.to_csv((save_path + "/Buildings_filtered.csv"), index=False) # Export buildings
         dupes.to_csv((save_path + "/Duplicate buildings.csv"), index=False) # Export duplicates
 
-    def prepare_cadastre(self, source, target):
+    def prepare_cadaster(self, source, target):
         """
     #### Inputs:
-    - (int) source crs with which the cadastre is defined
+    - (int) source crs with which the cadaster is defined
     - (int) target crs to which transform and get the corners
 
     #### Outputs:
     - None
 
     #### Exports:
-    - .csv with the min and max corners for each cadastre file
+    - .csv with the min and max corners for each cadaster file
         """
         
         # Initialize QGIS Application and Processing framework
@@ -177,15 +177,15 @@ class DataPreparator:
         Processing.initialize()
 
         # Declare transformer
-        source_crs = 'epsg:' + str(source) # Coordinate system of the cadastre files
+        source_crs = 'epsg:' + str(source) # Coordinate system of the cadaster files
         target_crs = 'epsg:' + str(target) # Coordinate system of LiDAR data
         global_to_local = pyproj.Transformer.from_crs(source_crs, target_crs)
         
-        # Get list of cadastre files
-        cadastre_files = []
-        for file in os.listdir(self.cadastre_path):
+        # Get list of cadaster files
+        cadaster_files = []
+        for file in os.listdir(self.cadaster_path):
             if (file.endswith('.gpkg') or file.endswith('.gpkg.zip')):
-                cadastre_files.append(file) #.split('.')[0]
+                cadaster_files.append(file) #.split('.')[0]
 
         # Iterate each file to find the minimum and maximum corners and store them
         filename = []
@@ -194,12 +194,12 @@ class DataPreparator:
         maxx = []
         maxy = []
 
-        for file in cadastre_files:
-            directory = self.cadastre_path + "\\" + file
-            Cadastre = QgsVectorLayer(directory,"Cadastre","ogr")
+        for file in cadaster_files:
+            directory = self.cadaster_path + "\\" + file
+            Cadaster = QgsVectorLayer(directory,"Cadaster","ogr")
             
             parameters = {
-                'INPUT':Cadastre,
+                'INPUT':Cadaster,
                 'ROUND_TO':0,
                 'OUTPUT':'TEMPORARY_OUTPUT'
             }
@@ -218,15 +218,15 @@ class DataPreparator:
                 maxy.append(global_to_local.transform(feature['MAXY'], feature['MAXX'])[1])
 
         # Convert stored info to dataframe and export it to .csv 
-        cadastre_limits = pd.DataFrame({
+        cadaster_limits = pd.DataFrame({
             'file': filename,
             'minx': minx, 'miny': miny, 
             'maxx':maxx, 'maxy':maxy
             })
 
-        save_path = self.output_path + "/Cadastre"
+        save_path = self.output_path + "/Cadaster"
         create_output_folder(save_path)
-        cadastre_limits.to_csv((save_path + "/Cadastre_Limits.csv"), index=False)
+        cadaster_limits.to_csv((save_path + "/Cadaster_Limits.csv"), index=False)
 
     def prepare_LiDAR(self, las2txtPath="C:/LAStools/bin/las2txt.exe"):
         """

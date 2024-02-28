@@ -16,13 +16,66 @@ import pandas as pd
 class SolarEstimator:
     """
     ### Attributes:
-    -
+    #### Defined upon initialization:
+    - building: single-row dataframe of the building containing, at least the following fields: x, y, identifier
+    - output_path: path to store the results. A folder specific for the current building is created inside that path and multiple folders will be created inside that.
+    - crsLiDAR: cordinate reference system used in the LiDAR files
+    - temp_path: THIS FOLDER AND ITS CONTENTS ARE DELETED ONCE THE CODE IS FINISHED. It is used to store temporal results. 
+    ##### Attributes with default values
+    - square_side: size of the neighborhood to export the 3d model 
+    
+    #### Self-generated:
+    - #### All instances of the imported class are made attributes to allow the user to check them from the outside. These are: segmentator, stlGenerator, planeDetector, planeProcessor, shader and pysam_simulator
+    - All the specific paths where to results will be exported are also generated, check the __register_folders method for further details
+    ##### Generated from loadData
+    - LiDAR_limits: dataframe containing the name of each LiDAR file and its x,y minimum and maximum values
+    - cadaster_limits: dataframe containing the name of each cadaster file and its x,y minimum and maximum values (converted to the same coordinates as LiDAR files)
+    - LiDAR_path: directory where all the LiDAR files are
+    - cadaster_path: directory where all the cadaster files are
+    ##### Generated from segmentLiDAR
+    - LiDAR_extended: path containing the LiDAR file from which the neighborhood will be obtained
+    ##### Generated from simulatePySAM
+    - pySAMResults: dataframe containing a summary of the simulation results for each sampled point
 
     ### Public methods:
-    -
+    - loadData: registers the path of all the external information needed into the SolarEstimator object
+    - segmentLiDAR: generates a .csv file with the LiDAR points inside the building limits (with a buffer)
+    - createNeighborhood: generates the point cloud/3D files of the neighborhood
+    - identifyPlanes: identifies the planes of the class's building
+    - processPlanes: processes the planes found in the previous step
+    - computeShading: generates the shading matrices of the planes
+    - simulatePySAM: obtains the PV generation of the points sampled and shaded in the previous step
+    - plotEnergyMap: plots an energy map, after simulating the solar generation
+
     """
 
-    def register_folders(self):
+    def __init__(self, building, output_path, crsLiDAR, square_side=200, temp_path="Results/_Temp"):
+        """
+    This function registers the path of all the external information needed into the SolarEstimator object
+
+    #### Inputs:
+    - building: single-row dataframe of the building containing, at least the following fields: x, y, identifier
+    - output_path: path to store the results. A folder specific for the current building is created inside that path and multiple folders will be created inside that.
+    - crsLiDAR: cordinate reference system used in the LiDAR files
+    - square_side: size of the neighborhood to export the 3d model 
+    - temp_path: THIS FOLDER AND ITS CONTENTS ARE DELETED ONCE THE CODE IS FINISHED. It is used to store temporal results. 
+        """
+        self.building = pd.DataFrame(building).reset_index(drop=True)
+        self.output_path = output_path + "/" + self.building.identifier[0]
+        self.temp_path = temp_path
+        self.crsLiDAR = crsLiDAR
+        self.square_side = square_side
+
+        create_output_folder(self.temp_path)
+
+        self.__register_folders()
+
+    def __register_folders(self):
+        """
+    Updates all attributes of the class that contain the paths to export the different results. These paths are later used in the different methods.
+
+    This method does not have any inputs or outputs, it's just an auxiliar function
+        """
         self.segmented_path = self.output_path + "/01 - Segmented Buildings"
         self.square_path = self.output_path + "/02 - Segmented Squares"
         baseOutputPath_TXT = self.square_path + "/01 - Point Cloud - txt"
@@ -47,35 +100,24 @@ class SolarEstimator:
         self.shadingPath = self.output_path + "/05 - Shading Matrices"
         self.pysamResultsPath = self.output_path + "/06 - PySAM Simulation"
 
-    def __init__(self, building, output_path, srcLiDAR, square_side=200, temp_path="Results/_Temp"):
-        self.building = pd.DataFrame(building).reset_index(drop=True)
-        self.output_path = output_path + "/" + self.building.identifier[0]
-        self.temp_path = temp_path
-        self.srcLiDAR = srcLiDAR
-        self.square_side = square_side
-
-        create_output_folder(self.temp_path)
-
-        self.register_folders()
-
     # Step 0 - load the Data
-    def loadData(self, LiDAR_info_path, cadastre_info_path, LiDAR_files_path, cadastre_files_path):
+    def loadData(self, LiDAR_info_path, cadaster_info_path, LiDAR_files_path, cadaster_files_path):
         """
-    This function registers each path into the SolarEstimator object
+    This function registers the path of all the external information needed into the SolarEstimator object
 
     #### Inputs:
     - LiDAR_info_path: file with all the LiDAR limits (the one generated with the dataPreparator class) 
-    - cadastre_info_path: file with all the cadastre limits (the one generated with the dataPreparator class) 
+    - cadaster_info_path: file with all the cadaster limits (the one generated with the dataPreparator class) 
     - LiDAR_files_path: path where the LiDAR files are
-    - cadastre_files_path: path where the cadastre files are
+    - cadaster_files_path: path where the cadaster files are
     
     #### Outputs:
     - None
         """
         self.LiDAR_limits = pd.read_csv(LiDAR_info_path) 
-        self.cadastre_limits = pd.read_csv(cadastre_info_path)
+        self.cadaster_limits = pd.read_csv(cadaster_info_path)
         self.LiDAR_path = LiDAR_files_path
-        self.cadastre_path = cadastre_files_path
+        self.cadaster_path = cadaster_files_path
 
     # Step 1 - segment LiDAR
     def segmentLiDAR(self, offset=1, square_side=None):
@@ -96,7 +138,7 @@ class SolarEstimator:
         # Store attributes
         if(square_side != None):
             self.square_side = square_side
-        self.LiDAR_offset = offset
+        LiDAR_offset = offset
         
         # Prepare output
         create_output_folder(self.segmented_path)
@@ -113,22 +155,22 @@ class SolarEstimator:
             destination = self.temp_path + "/temporalMerged.txt"
             self.LiDAR_extended = merge_txt(filenames, destination)
             
-            # Checks each cadastre limits and looks for polygon only in those files where it is indicated it could be in 
-            self.segmentator.find_potential_cadastre(self.cadastre_limits)
-            self.foundCadastre = self.segmentator.polygon_cadastre(self.cadastre_path, self.srcLiDAR)
-            if(self.foundCadastre):
+            # Checks each cadaster limits and looks for polygon only in those files where it is indicated it could be in 
+            self.segmentator.find_potential_cadaster(self.cadaster_limits)
+            foundcadaster = self.segmentator.polygon_cadaster(self.cadaster_path, self.crsLiDAR)
+            if(foundcadaster):
                 export_path = self.segmented_path + "/" + self.building.identifier[0]
                 self.segmentator.export_geopackage(export_path)
-                self.segmentator.LiDAR_polygon_segmentation(self.LiDAR_extended, export_path, self.LiDAR_offset, self.srcLiDAR)
+                self.segmentator.LiDAR_polygon_segmentation(self.LiDAR_extended, export_path, LiDAR_offset, self.crsLiDAR)
             else:
                 with open(self.output_path + "/log.csv", 'w') as f:
-                    f.write("Building " + self.building.identifier[0] + " does not have cadastre info")
-                print("Building " + self.building.identifier[0] + " does not have cadastre info")
+                    f.write("Building " + self.building.identifier[0] + " does not have cadaster info")
+                print("Building " + self.building.identifier[0] + " does not have cadaster info")
 
     # Step 2 - Export the .stl file
     def createNeighborhood(self, LAStoolsPath, square_side=None, export3D=True):
         """
-    This function generates a .3d file of the neighborhood
+    This function generates the point cloud/3D files of the neighborhood
 
     #### Inputs:
     - LAStoolsPath: directory where txt2las.exe is stored
@@ -157,7 +199,7 @@ class SolarEstimator:
     # Step 3 - Plane identification with RANSAC
     def identifyPlanes(self, generateFigures=True, **kwargs):
         """
-    This function identifies the planes of the object's building
+    This function identifies the planes of the class's building
 
     #### Inputs:
     - generateFigures: whether or not to export figures of the identified planes
@@ -184,7 +226,7 @@ class SolarEstimator:
     - Deletes planes of bad quality.
     - Deletes overlaps.
     - Pierces holes.
-    - Trims according to cadastre limits
+    - Trims according to cadaster limits
 
     #### Inputs:
     - crsCadaster: coordinate reference system of the cadaster files (used for trimming)
@@ -199,8 +241,8 @@ class SolarEstimator:
     - .png image of the 3D scatter plot
     - .png image of the 2D scatter plot + regions plot
         """
-        cadastrePath = self.segmented_path + "/" + self.building.identifier[0] + ".gpkg"
-        self.planeProcessor = PlaneProcessor(self.building, self.segmented_path, self.identifiedPaths, self.processedPaths, cadastrePath, generateFigures, **kwargs)
+        cadasterPath = self.segmented_path + "/" + self.building.identifier[0] + ".gpkg"
+        self.planeProcessor = PlaneProcessor(self.building, self.segmented_path, self.identifiedPaths, self.processedPaths, cadasterPath, generateFigures, **kwargs)
         self.planeProcessor.plotPlanes("From RANSAC_" + self.building.identifier[0])
 
         i = 0
@@ -221,8 +263,8 @@ class SolarEstimator:
                     break
         
         self.planeProcessor.deleteOverlaps()
-        self.planeProcessor.pierce(cadastre=False)
-        self.planeProcessor.cadasterTrim(source=crsCadaster, target=self.srcLiDAR)
+        self.planeProcessor.pierce(cadaster=False)
+        self.planeProcessor.cadasterTrim(source=crsCadaster, target=self.crsLiDAR)
         self.planeProcessor.exportResults()
 
     # Step 5 -Shading calculation
@@ -247,9 +289,9 @@ class SolarEstimator:
         create_output_folder(self.shadingPath, deleteFolder=True)
 
         planeListFile = self.processedPaths[0] + "PlaneList_" + self.building.identifier[0] + ".csv"
-        self.planedf = pd.read_csv(planeListFile) # Yes, I'm doing this only to get the number of planes
+        planedf = pd.read_csv(planeListFile) # Yes, I'm doing this only to get the number of planes
         
-        for planeIDShading in range(len(self.planedf)):
+        for planeIDShading in range(len(planedf)):
             self.shader = Shader(self.building, planeIDShading, self.squarePaths[0], self.squarePaths[3], self.processedPaths[0], self.shadingPath, **kwargs)
             self.shader.prepareDataShading()
             self.shader.sampleRoof()
@@ -261,7 +303,7 @@ class SolarEstimator:
     # Step 6 -PySAM simulation
     def simulatePySAM(self, tmyfile, generateFigures=False, ratio=float(0.450/2)):
         """
-    This function generates the shading matrices of the planes
+    This function obtains the PV generation of the points sampled and shaded in the previous step
 
     #### Inputs:
     - tmyfile: .csv of the TMYfile, must be otained from NREL (https://nsrdb.nrel.gov/data-viewer) or converted to the same format
@@ -277,7 +319,7 @@ class SolarEstimator:
         """
 
         planeListFile = self.processedPaths[0] + "PlaneList_" + self.building.identifier[0] + ".csv"
-        self.planedf = pd.read_csv(planeListFile)
+        planedf = pd.read_csv(planeListFile)
         create_output_folder(self.pysamResultsPath, deleteFolder=True)
         create_output_folder(self.pysamResultsPath + "/Yearly Results/", deleteFolder=True)
 
@@ -291,23 +333,23 @@ class SolarEstimator:
         acAnnuals = []
         radiationAnnuals = []
 
-        for planeIDMatrix in range(len(self.planedf)):
+        for planeIDMatrix in range(len(planedf)):
             sampledPointsPath = self.shadingPath + "/" + str(planeIDMatrix) + "/Points sampled.csv"
             sampledPoints = pd.read_csv(sampledPointsPath, header = None)
             sampledPoints = sampledPoints.rename(columns={0: "x", 1: "y", 2:"z"})
 
             for i in range(len(sampledPoints)):
                 roofIds.append(planeIDMatrix)
-                tilts.append(self.planedf.tilt[planeIDMatrix])
-                azimuths.append(self.planedf.azimuth[planeIDMatrix])
-                areas.append(self.planedf.area[planeIDMatrix])
+                tilts.append(planedf.tilt[planeIDMatrix])
+                azimuths.append(planedf.azimuth[planeIDMatrix])
+                areas.append(planedf.area[planeIDMatrix])
                 pointsX.append(sampledPoints.x[i])
                 pointsY.append(sampledPoints.y[i])
 
                 shadingMatrixPath = self.shadingPath + "/" + str(planeIDMatrix) + "/Individual Matrices/" + str(i).zfill(2) + ".csv"
                 resultsPath = self.pysamResultsPath + "/Yearly Results/" + str(planeIDMatrix) + "_"  + str(i).zfill(2)
                 
-                self.pysam_simulator = PySAMSimulator(shadingMatrixPath, resultsPath, self.planedf, planeIDMatrix, ratio, tmyfile)
+                self.pysam_simulator = PySAMSimulator(shadingMatrixPath, resultsPath, planedf, planeIDMatrix, ratio, tmyfile)
                 simulationResults = self.pysam_simulator.runPySAMSimulation()
                 acAnnuals.append(simulationResults["ac_annual"])
                 radiationAnnuals.append(simulationResults["solrad_annual"])
