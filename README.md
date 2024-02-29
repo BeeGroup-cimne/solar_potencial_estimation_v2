@@ -3,7 +3,7 @@
 
 This program was developed to assess the photovoltaic potential on solar rooftops of a building based on LiDAR data. LiDAR is a technique used to  detect distance to objects and, in the cases of buildings and geographical regions, LiDAR data is a sample of points with an x, y and z coordinates. To help with the delimiting of each building, cadastre info is used to obtain the polygon outline.
 
-![alt text](Images/Goal.png)
+![Goal](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/1f012108-87f7-44fb-80ad-5d55184c340f)
 
 ## Requirements
 The following external apps are required:
@@ -41,7 +41,8 @@ Onces the data is prepared, the solar simulation can begin. This is done with th
 
 Once the class is instantiated, it needs to be updated with the paths of all the data information (LiDAR and cadastre files) and, then, it can start the process described in the following figure. 
 
-![alt text](Images/SimulationProcess.png)
+![SimulationProcess](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/c07bb589-d5ec-45fd-a0b0-b7554d436f61)
+
 
 ### 1. Segment LiDAR
 - <span style="color:lime"> Code working </span>
