@@ -33,37 +33,60 @@ The *DataPreparator* class in this program is responsible of preparing these fil
 The class contains the following methods:
 - **prepare_buildings:** converts the buildings list to the same coordiantes as the LiDAR data, and also deletes duplicates in the list.
 - **prepare_cadaster:** scans each cadaster file to know its span (minimum and maximum corners of the file) and export that information to a list in the same coordinates as the LiDAR data.
-- **prepare_LiDAR:** scans each LiDAR file and exports a list with the limits (minimum and maximum corners) of each file, to simplify searches in the future.
+- **prepare_LiDAR:** scans each LiDAR file and exports a list with the limits (minimum and maximum corners) of each file, to simplify searches in the future. In the case the LiDAR data is in .laz file, it also converts them to .txt, which is the extension that will be used in the program.
 
 ## Solar Estimation
 
 Onces the data is prepared, the solar simulation can begin. This is done with the help of the *SolarEstimator* class, that handles of the steps in the simulation process, as well as managing the directories of each input and output.
 
-Once the class is instantiated, it needs to be updated with the paths of all the data information (LiDAR and cadastre files) and, then, it can start the process described in the following figure. 
+Once the class is instantiated, it needs to be updated with the paths of all the data information (LiDAR and cadastre files) and, then, it can start all the process.
+
+The whole program is designed in submodules, as shown in the following figure and as explained below. 
 
 ![SimulationProcess](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/c07bb589-d5ec-45fd-a0b0-b7554d436f61)
 
 
-### 1. Segment LiDAR
-- <span style="color:lime"> Code working </span>
-- <span style="color:lime"> Documentation </span>
+### 1. LiDAR segmentation
+This uses the *LidarSegmentator* class to generate a .csv file with the LiDAR points inside the building limits. A buffer to get some area outside the building can also be applied.
 
-### 2. Generate STL
-- <span style="color:lime"> Code working </span>
-- <span style="color:lime"> Documentation </span>
+![LiDAR data](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/f940ef56-8eae-4c72-b6b0-30cd410fdfd7)
+
+
+### 2. STL Generation
+Here, the *STLExporter* class is used to obtain the 3D model of the neighborhood (a square of the given side, defauls is 200m), that will later be used in the shading module. LASTools are required here for the 3D exportation.
+
+![3D model](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/87bcc430-b5a4-4684-b86d-9362b19393d5)
+
 
 ### 3. Plane identification
-- <span style="color:lime"> Code working </span>
-- <span style="color:lime"> Documentation </span>
+This part of the program calls the *PlaneDetector* class to identify the planes in the building rootop. Given the LiDAR file of only the building, the planes are identified by applying the RANSAC algorithm, which tries to fit different planes (stochasticly genreated) to the given data, and returns the ones that had a better fit. To get faster and better results, the data is first split by height discontinuities and the selection is not entirely random, but instead points with a most common gradient are more likely to be sampled.
+
+![Plane Identification](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/43edf422-d2a1-4af6-b106-cab69e08853c)
 
 ### 4. Plane processing
-- <span style="color:lime"> Code working </span>
-- <span style="color:lime"> Documentation </span>
+Once the planes have been succesfully identified, some postProcessing techniques are applied, with the *planeProcessor* class. This postprocessing techinques are:
+- Merges planes that are too similar.
+- Splits planes if there are discontinuities
+- Deletes planes of bad quality (too small, too few data points or density is too low).
+- Deletes overlaps.
+- Pierces holes (areas in which there are not points).
+- Trim according to cadaster limits
 
-### 5. Compute Shading
-- <span style="color:lime"> Code working </span>
-- <span style="color:lime"> Documentation </span>
+![Plane Process](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/8f663285-7794-4b1f-82da-2c69aeff45f5)
+
+### 5. Shading computation
+With the definitive planes of the building, the shading calculation can begin (using the *Shader* module). To shade a rooftop, some points are sampled and, for each point, the shading matrix is calculated.
+
+To calculate the shading matrix of a point, the 3D model previously generated is loaded into the program and, from the sampled point, rays are sent in all the directions and, in those directions that the ray collides with the 3d model, that direction (altitude and azimuth) is registered to be shaded. This is done for all the points sampled t ogather different areas of the same rooftop (specially for larger rooftops)
+
+A matrix like the following (where the horizontal axis is the ray azimtuh and the vertical axis is their altitude) is generated for each sampled points.
+![Shading](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/a448b4f7-ea0e-454b-b54e-7f3d54f8d127)
 
 ### 6. PySAM simulation
-- <span style="color:lime"> Code working </span>
-- <span style="color:lime"> Documentation </span>
+Here, the *PySAMSimulator* class is applied to obtain the PV generation of the points sampled and shaded in the previous step. 
+
+This simulation is done using the PySAM library, that integrates the System Advisor Model (SAM, from NREL) capabilities in a Python module. To perform the simulation, a typical meteorological year (TMY) file of the region of interest is needed, which can be downloaded at (https://nsrdb.nrel.gov/data-viewer).
+
+The final results are the yearly generation of all the sampled points in the rooftop. These results can be used to estimate the PV potential of a building but beware that the final results are an estimation **considering that the whole rooftop was covered in solar panels**, which might not be always feasible. The more realistic results are the density of yearly energy generation per square meterm which can be used to determine if it is worth to install panels in a particular rooftop.
+
+![Solar estimation](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/b7927326-7fe8-4ff0-aa5e-bbb476b5dc69)
