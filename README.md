@@ -43,24 +43,30 @@ Once the class is instantiated, it needs to be updated with the paths of all the
 
 The whole program is designed in submodules, as shown in the following figure and as explained below. 
 
-![SimulationProcess](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/c07bb589-d5ec-45fd-a0b0-b7554d436f61)
+![SimulationProcess](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/2a94e86b-91cd-45df-9a3b-f6032a0fa63b)
 
 
 ### 1. LiDAR segmentation
 This uses the *LidarSegmentator* class to generate a .csv file with the LiDAR points inside the building limits. A buffer to get some area outside the building can also be applied.
-
+<p align="center">
+<img src="https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/f940ef56-8eae-4c72-b6b0-30cd410fdfd7" alt="LiDAR data" width="400"/>
+</p>
 ![LiDAR data](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/f940ef56-8eae-4c72-b6b0-30cd410fdfd7)
 
 
 ### 2. STL Generation
 Here, the *STLExporter* class is used to obtain the 3D model of the neighborhood (a square of the given side, defauls is 200m), that will later be used in the shading module. LASTools are required here for the 3D exportation.
-
+<p align="center">
+<img src="https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/87bcc430-b5a4-4684-b86d-9362b19393d5" alt="3D model" width="600"/>
+</p>
 ![3D model](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/87bcc430-b5a4-4684-b86d-9362b19393d5)
 
 
 ### 3. Plane identification
 This part of the program calls the *PlaneDetector* class to identify the planes in the building rootop. Given the LiDAR file of only the building, the planes are identified by applying the RANSAC algorithm, which tries to fit different planes (stochasticly genreated) to the given data, and returns the ones that had a better fit. To get faster and better results, the data is first split by height discontinuities and the selection is not entirely random, but instead points with a most common gradient are more likely to be sampled.
-
+<p align="center">
+<img src="https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/43edf422-d2a1-4af6-b106-cab69e08853c" alt="Plane Identification" width="400"/>
+</p>
 ![Plane Identification](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/43edf422-d2a1-4af6-b106-cab69e08853c)
 
 ### 4. Plane processing
@@ -71,7 +77,9 @@ Once the planes have been succesfully identified, some postProcessing techniques
 - Deletes overlaps.
 - Pierces holes (areas in which there are not points).
 - Trim according to cadaster limits
-
+<p align="center">
+<img src="https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/bf221b27-0b95-42ac-a69a-e0805cac953d" alt="Plane Process" width="400"/>
+</p>
 ![Plane Process](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/8f663285-7794-4b1f-82da-2c69aeff45f5)
 
 ### 5. Shading computation
@@ -79,7 +87,10 @@ With the definitive planes of the building, the shading calculation can begin (u
 
 To calculate the shading matrix of a point, the 3D model previously generated is loaded into the program and, from the sampled point, rays are sent in all the directions and, in those directions that the ray collides with the 3d model, that direction (altitude and azimuth) is registered to be shaded. This is done for all the points sampled t ogather different areas of the same rooftop (specially for larger rooftops)
 
-A matrix like the following (where the horizontal axis is the ray azimtuh and the vertical axis is their altitude) is generated for each sampled points.
+A matrix like the following (where the horizontal axis is the ray azimtuh and the vertical axis is their altitude) is generated for each sampled point.
+<p align="center">
+<img src="https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/f466e6ae-db83-4e30-a050-972a71820b93" alt="Shading" width="400"/>
+</p>
 ![Shading](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/a448b4f7-ea0e-454b-b54e-7f3d54f8d127)
 
 ### 6. PySAM simulation
@@ -88,5 +99,7 @@ Here, the *PySAMSimulator* class is applied to obtain the PV generation of the p
 This simulation is done using the PySAM library, that integrates the System Advisor Model (SAM, from NREL) capabilities in a Python module. To perform the simulation, a typical meteorological year (TMY) file of the region of interest is needed, which can be downloaded at (https://nsrdb.nrel.gov/data-viewer).
 
 The final results are the yearly generation of all the sampled points in the rooftop. These results can be used to estimate the PV potential of a building but beware that the final results are an estimation **considering that the whole rooftop was covered in solar panels**, which might not be always feasible. The more realistic results are the density of yearly energy generation per square meterm which can be used to determine if it is worth to install panels in a particular rooftop.
-
+<p align="center">
+<img src="https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/6b0947f4-c353-42bd-b3be-11544bdc21ce" alt="Solar estimation" width="400"/>
+</p>
 ![Solar estimation](https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/b7927326-7fe8-4ff0-aa5e-bbb476b5dc69)
