@@ -2,10 +2,6 @@ from Classes.DataPreparator import DataPreparator
 from Classes.SolarEstimator import SolarEstimator
 import pandas as pd
 
-buildings_path = "Sample/Data/Buildings lists/Buildings Campus Terrassa.csv"
-cadaster_path = "Sample/Data/Cadaster files"
-LiDAR_path = "Sample/Data/LiDAR files"
-output_path = "Sample/Results/Data Preparation"
 
 def prepare_alldata(data_prepPaths, LiDAR_target, buildings_source=4326, cadstre_source=4326, las2txtPath="C:/LAStools"):
     dataprep = DataPreparator(data_prepPaths[0], data_prepPaths[1], data_prepPaths[2], data_prepPaths[3])
@@ -40,28 +36,28 @@ def simulateBuilding(building, simulationPaths, crsCadaster, crsLiDAR):
 if __name__ =="__main__":
     # For data preparation
         # To modify
-    buildings_path = "Sample/Data/Buildings lists/Buildings Campus Terrassa.csv"
+    buildings_path = "Sample/Data/Buildings lists/Buildings List.csv"
     cadaster_path = "Sample/Data/Cadaster files"
     LiDAR_path = "Sample/Data/LiDAR files"
     output_path = "Sample/Results/Data Preparation"
         # Do not touch
     data_prepPaths = [buildings_path, cadaster_path, LiDAR_path, output_path]
-    prepare_alldata(data_prepPaths, LiDAR_target=25831)
+    prepare_alldata(data_prepPaths, LiDAR_target=5514)
 
     # For PV simulation
         # To modify
     buildings_info_path = "Sample\Results\Data Preparation\Buildings\Buildings_filtered.csv"
-    buildingsID = ['TR2']
+    buildingsID = ['eP-EAZK-050']
 
     LiDAR_info_path = "Sample/Results/Data Preparation/LiDAR/LiDAR_Limits.csv"
     cadaster_info_path = "Sample/Results/Data Preparation/Cadaster/Cadaster_Limits.csv"
     LiDAR_path = "Sample/Data/LiDAR files"
     cadaster_path = "Sample/Data/Cadaster files"
-    tmyfile = "Sample/Data/TMY_Terrassa-2018.csv"
+    tmyfile = "Sample/Data/TMY_Zlin-2018.csv"
     output_path = "Sample/Results"
 
-    crsCadaster=4326
-    crsLiDAR=25831
+    crsCadaster=3035
+    crsLiDAR=5514
 
         # Do not touch
     simulationPaths = [output_path, LiDAR_info_path, cadaster_info_path, LiDAR_path, cadaster_path, tmyfile]
