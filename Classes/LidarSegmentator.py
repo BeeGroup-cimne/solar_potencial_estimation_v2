@@ -2,21 +2,21 @@ from Functions.general_functions import create_output_folder, delete_folder, mer
 import os
 import pandas as pd
 
-# Import qgis modules
+# # Import qgis modules
 
-from qgis.core import *
-from qgis.analysis import QgsNativeAlgorithms
-from qgis import processing
+# from qgis.core import *
+# from qgis.analysis import QgsNativeAlgorithms
+# from qgis import processing
 
-# Initialize QGIS Application
-QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
-app = QgsApplication([], True)
-QgsApplication.initQgis()
+# # Initialize QGIS Application
+# QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
+# app = QgsApplication([], True)
+# QgsApplication.initQgis()
 
-# Import and initialize Processing framework
-from processing.core.Processing import Processing
-Processing.initialize()
-import processing
+# # Import and initialize Processing framework
+# from processing.core.Processing import Processing
+# Processing.initialize()
+# import processing
 
 class LidarSegmentator:
     """

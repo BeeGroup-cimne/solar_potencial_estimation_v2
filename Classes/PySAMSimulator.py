@@ -5,7 +5,6 @@ import PySAM.Pvwattsv8 as PVWatts
 import PySAM.Grid as Grid
 import csv
 import matplotlib.pyplot as plt
-import math
 from datetime import datetime
 from matplotlib.dates import DateFormatter
 

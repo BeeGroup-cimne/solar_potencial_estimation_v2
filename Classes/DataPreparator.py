@@ -6,11 +6,16 @@ import subprocess  # To work with lastools .exe files
 
 # QGIS and processing related-modules
 from qgis.core import *
+QgsApplication.setPrefixPath("", True)
 from qgis.analysis import QgsNativeAlgorithms
 from qgis import processing
-
 from processing.core.Processing import Processing
-import processing
+
+# Initialize QGIS Application and Processing framework
+app = QgsApplication([], True)
+QgsApplication.initQgis()
+Processing.initialize()
+
 
 class DataPreparator:
     """
@@ -36,6 +41,7 @@ class DataPreparator:
     - cadaster_path: Directory containing all the cadaster geopackages, AND ONLY THE GEOPACKAGES (extensions: .gpkg or .zip containing a .gpkg)
     - LiDAR_path: Directory containing all the LiDAR files, AND ONLY THE LiDAR FILES (extensions: .laz, or .txt/.csv)
     - output_path: Directory where exports need to be saved (if the folder does not exist, it will be created)
+    - QGIS_path: path of the QGIS program
         """
         self.buildings_path = buildings_path
         self.cadaster_path = cadaster_path
@@ -98,7 +104,7 @@ class DataPreparator:
                 laz_files.append(LiDAR_path + "/" + file)
 
         if(len(laz_files) > 0):
-            args = [LAStoolsPath + "/bin/las2txt.exe"]
+            args = LAStoolsPath
             args.extend(laz_files)
             # args.extend(['-odir', LiDAR_path])
             args.extend(['-parse', 'xyz'])
@@ -156,6 +162,7 @@ class DataPreparator:
         create_output_folder(save_path)
         buildings.to_csv((save_path + "/Buildings_filtered.csv"), index=False) # Export buildings
         dupes.to_csv((save_path + "/Duplicate buildings.csv"), index=False) # Export duplicates
+        print("Building preparation done")
 
     def prepare_cadaster(self, source, target):
         """
@@ -169,12 +176,6 @@ class DataPreparator:
     #### Exports:
     - .csv with the min and max corners for each cadaster file
         """
-        
-        # Initialize QGIS Application and Processing framework
-        QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
-        app = QgsApplication([], True)
-        QgsApplication.initQgis()
-        Processing.initialize()
 
         # Declare transformer
         source_crs = 'epsg:' + str(source) # Coordinate system of the cadaster files
@@ -195,20 +196,20 @@ class DataPreparator:
         maxy = []
 
         for file in cadaster_files:
-            directory = self.cadaster_path + "\\" + file
+            directory = self.cadaster_path + "/" + file
             Cadaster = QgsVectorLayer(directory,"Cadaster","ogr")
             
             parameters = {
                 'INPUT':Cadaster,
-                'ROUND_TO':0,
+                # 'ROUND_TO':0,
                 'OUTPUT':'TEMPORARY_OUTPUT'
             }
 
             extension = processing.run("native:polygonfromlayerextent", parameters)['OUTPUT']
             
-            fields = []
-            for field in extension.fields():
-                fields.append(field.name())  
+            # fields = []
+            # for field in extension.fields():
+            #     fields.append(field.name())  
             
             for feature in extension.getFeatures():
                 filename.append(file)
@@ -227,6 +228,7 @@ class DataPreparator:
         save_path = self.output_path + "/Cadaster"
         create_output_folder(save_path)
         cadaster_limits.to_csv((save_path + "/Cadaster_Limits.csv"), index=False)
+        print("Cadaster preparation done")
 
     def prepare_LiDAR(self, las2txtPath="C:/LAStools/bin/las2txt.exe"):
         """
@@ -267,3 +269,4 @@ class DataPreparator:
         save_path = self.output_path + "/LiDAR"
         create_output_folder(save_path)
         LiDAR_files.to_csv((save_path + "/LiDAR_Limits.csv"), index=False)
+        print("LiDAR preparation done")

@@ -3,11 +3,11 @@ import pandas as pd
 import subprocess  # Merge laz files
 
 import sys
-sys.path.append("C:/DEMto3D-QGIS-Plugin/model_builder")  # Import stl related modules
-import Model_Builder, STL_Builder
-from qgis.core import *
-from qgis.analysis import QgsNativeAlgorithms
-from qgis import processing
+# sys.path.append("C:/DEMto3D-QGIS-Plugin/model_builder")  # Import stl related modules
+# import Model_Builder, STL_Builder
+# from qgis.core import *
+# from qgis.analysis import QgsNativeAlgorithms
+# from qgis import processing
 
 from Functions.general_functions import create_output_folder
 

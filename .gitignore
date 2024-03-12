@@ -3,3 +3,5 @@ Classes/__pycache__/*
 Functions/__pycache__/*
 /testBench.ipynb
 Images/*
+.vscode/*
+/packages.txt

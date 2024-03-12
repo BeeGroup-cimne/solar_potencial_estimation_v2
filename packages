@@ -1,0 +1,12 @@
+conda deactivate
+conda remove --name qgisenv --all
+conda create -n qgisenv python=3.9
+conda activate qgisenv
+conda install pandas pyproj numpy scikit-learn matplotlib shapely scipy geopandas
+pip install trimesh nrel-pysam
+conda install -c conda-forge qgis
+conda install python==3.11
+
+conda-develop 
+/usr/share/qgis/python:/home/jaumeasensio/.local/share/QGIS/QGIS3/profiles/default/python:/home/jaumeasensio/.local/share/QGIS/QGIS3/profiles/default/python/plugins:/usr/share/qgis/python/plugins:/usr/lib/python310.zip:/usr/lib/python3.10:/usr/lib/python3.10/lib-dynload:/usr/local/lib/python3.10/dist-packages:/usr/lib/python3/dist-packages:/home/jaumeasensio/.local/share/QGIS/QGIS3/profiles/default/python
+'] -n qgisenv
