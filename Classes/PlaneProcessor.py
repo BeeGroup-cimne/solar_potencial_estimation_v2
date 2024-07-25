@@ -264,44 +264,40 @@ class PlaneProcessor:
         _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, c="Gray", marker=".", alpha = 0.1)
        
         for i in range(len(self.planePointList)):
-            # df = self.planePointList[i].copy()
+            ax.set_title(name)
+            try:
 
-            # x = df["x"]
-            # y = df["y"]
+                if(len(self.planePointList[i]) >= self.minPointsDelete):
+                    
+                    c = next(color)
 
-            # p = []
-
-            # for j in range(len(x)):
-            #     p.append((x[j], y[j]))
-            
-            if(len(self.planePointList[i]) >= self.minPointsDelete):
-                ax.set_title(name)
-                c = next(color)
-
-                if(not showTrimmed):
-                    poly = plt.Polygon(PlaneProcessor.__convexhull(self.planePointList[i]), color=c, alpha=0.2) #poly = plt.Polygon(convexhull(p), ec="k", alpha=0.2)
-                    ax.add_patch(poly)    
-                else:
-                    if(type(self.planedf.trimmedPolygon[i]) == type(Polygon())):
-                        plt.fill(*self.planedf.trimmedPolygon[i].exterior.xy, color=c, alpha=0.2)
-
-                        for interior in self.planedf.trimmedPolygon[i].interiors:
-                            plt.plot(*interior.xy, color="k", alpha=0.5)
-
+                    if(not showTrimmed):
+                        
+                            poly = plt.Polygon(PlaneProcessor.__convexhull(self.planePointList[i]), color=c, alpha=0.2) #poly = plt.Polygon(convexhull(p), ec="k", alpha=0.2)
+                            ax.add_patch(poly)
+                        
                     else:
-                        for geom in self.planedf.trimmedPolygon[i].geoms:
-                            plt.fill(*geom.exterior.xy, color=c, alpha=0.2)
+                        if(type(self.planedf.trimmedPolygon[i]) == type(Polygon())):
+                            plt.fill(*self.planedf.trimmedPolygon[i].exterior.xy, color=c, alpha=0.2)
 
-                            for interior in geom.interiors:
-                                plt.plot(*interior.xy, color="k", alpha=0.5) #plt.fill(*interior.xy, color=c, alpha=0.2)
+                            for interior in self.planedf.trimmedPolygon[i].interiors:
+                                plt.plot(*interior.xy, color="k", alpha=0.5)
 
-                ax.scatter(self.planePointList[i].x, self.planePointList[i].y, color=c, marker='.',  label=i)
+                        else:
+                            for geom in self.planedf.trimmedPolygon[i].geoms:
+                                plt.fill(*geom.exterior.xy, color=c, alpha=0.2)
+
+                                for interior in geom.interiors:
+                                    plt.plot(*interior.xy, color="k", alpha=0.5) #plt.fill(*interior.xy, color=c, alpha=0.2)
+
+                    ax.scatter(self.planePointList[i].x, self.planePointList[i].y, color=c, marker='.',  label=i)
+            except:
+                pass  
         
         ax.legend(loc="lower left")
         ax.set_aspect('equal', adjustable='box')
         
         filename = self.processedImagesPath + name + ".png"
-        #plt.show()
         fig.savefig(filename)
         plt.close()
 
@@ -944,18 +940,20 @@ class PlaneProcessor:
         #### Exports:
         - .png of a plot with the current state of the plane processing. Contains, for all planes, their 3d point scatter
         """
+        try:
+            fig = plt.figure()
+            ax = fig.add_subplot(projection='3d')
+            color = iter(plt.cm.rainbow(np.linspace(0, 1, len(self.planePointList))))
+            _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, self.buildingPoints.z, c="Gray", marker=".", alpha = 0.1)
+            
+            for k in range(len(self.planePointList)):
+                # c = next(color)
+                _ = ax.scatter(self.planePointList[k].x, self.planePointList[k].y, self.planePointList[k].z, c=next(color), label=k, marker=".")
 
-        fig = plt.figure()
-        ax = fig.add_subplot(projection='3d')
-        color = iter(plt.cm.rainbow(np.linspace(0, 1, len(self.planePointList))))
-        _ = ax.scatter(self.buildingPoints.x, self.buildingPoints.y, self.buildingPoints.z, c="Gray", marker=".", alpha = 0.1)
-        
-        for k in range(len(self.planePointList)):
-            c = next(color)
-            _ = ax.scatter(self.planePointList[k].x, self.planePointList[k].y, self.planePointList[k].z, color=c, label=k, marker=".")
-
-        ax.legend(loc="lower left")
-        ax.set_aspect('equal', adjustable='box')
-        filenameImage = self.processedImagesPath + name + '_Plane3D_' + ".png"
-        plt.savefig(filenameImage)
-        plt.close()
+            ax.legend(loc="lower left")
+            ax.set_aspect('equal', adjustable='box')
+            filenameImage = self.processedImagesPath + name + '_Plane3D_' + ".png"
+            plt.savefig(filenameImage)
+            plt.close()
+        except:
+            pass

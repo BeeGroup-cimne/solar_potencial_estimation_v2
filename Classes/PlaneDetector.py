@@ -42,7 +42,7 @@ class PlaneDetector:
     def __init__(self, building, segmented_LiDAR, savePaths, generateFigures=True, 
                  heightThreshold=1, deleteFirst=True, 
                  nGradient=5, ransacIterations=20, distanceThreshold=0.2, 
-                 minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=0.1, pdfExponent=2, densityMultiplier=0.5):
+                 minGlobalPercentage=0.1, minPartialPercentage=0.4, stoppingPercentage=None, pdfExponent=2, densityMultiplier=0.5):
         """
     #### Inputs:
     - building: single row dataframe containing at least the following fields: identifier, x, y
@@ -160,7 +160,7 @@ class PlaneDetector:
             plt.savefig(filenameImage)
             plt.close()
 
-            return filteredHeightGroups
+        return filteredHeightGroups
 
     def __gradient(self, point, currentGroup):
         """
@@ -264,7 +264,7 @@ class PlaneDetector:
         #### Outputs:
         - score: a single value metric to decide which plane is best
         """
-        return size*std*density**2
+        return size*std*density**4
     
     def __samplePoints(self, pointsToIdentifydf):
         """
@@ -445,7 +445,7 @@ class PlaneDetector:
             looping = True
             previousEmpty = False
 
-            while(looping): #Need to redefine the stopping criteria         # looping = len(notPlanePoints) > self.stoppingPercentage*len(self.currentGroup)
+            while(looping): #Need to redefine the stopping criteria         # looping = len(notPlanePoints) > self.stoppingPercentage*len(currentGroup)
                 
                 bestPlane, planePoints, notPlanePoints = self.__ransac_ordered(notPlanePoints, min(self.minGlobalPercentage*len(currentGroup), self.minPartialPercentage*len(notPlanePoints)), heightGroupDensity)
                 if(len(bestPlane) > 0):
@@ -466,13 +466,15 @@ class PlaneDetector:
                         ax = fig.add_subplot()
                         color = iter(plt.cm.rainbow(np.linspace(0, 1, len(planePointsList))))
                         _ = ax.scatter(buildingPoints.x, buildingPoints.y, c="Gray", marker=".", alpha = 0.1)
-                        
+
                         for k in range(len(planePointsList)):
                             filenamePoints =  self.planePointsPath + self.building.identifier[0] + "_Div_" + str(j) + "_plane " + str(k) + ".csv"
                             pd.DataFrame(planePointsList[k]).to_csv(filenamePoints, header=False, index=False) 
                             c = next(color)
-                            _ = ax.scatter(planePointsList[k].x, planePointsList[k].y, color=c, label=k, marker=".")
-
+                            try:
+                                _ = ax.scatter(planePointsList[k].x, planePointsList[k].y, color=c, label=k, marker=".")
+                            except:
+                                pass
                         ax.legend(loc="lower left")
                         ax.set_aspect('equal', adjustable='box')
                         filenameImage = self.imagesPath + self.building.identifier[0] + '_PlaneList_' + str(j) + "_Step_" + str(len(planePointsList)) + ".png"
@@ -489,8 +491,10 @@ class PlaneDetector:
                     minPoints = min(minPoints, len(planePointsList[i]))
                 
                 looping = (not previousEmpty or (len(bestPlane) > 0)) and (len(notPlanePoints) > 3)
-
                 previousEmpty = len(bestPlane) == 0
+
+                if self.stoppingPercentage != None:
+                    looping = (looping or (len(notPlanePoints) > self.stoppingPercentage*len(currentGroup)))and (len(notPlanePoints) > 3)
 
             print("\t Run out of iterations.", len(notPlanePoints), 'points left')   
 
@@ -505,9 +509,11 @@ class PlaneDetector:
                 for k in range(len(planePointsList)):
                     filenamePoints =  self.planePointsPath + self.building.identifier[0] + "_Div_" + str(j) + "_plane " + str(k) + ".csv"
                     pd.DataFrame(planePointsList[k]).to_csv(filenamePoints, header=False, index=False) 
-                    c = next(color)
-                    _ = ax.scatter(planePointsList[k].x, planePointsList[k].y, planePointsList[k].z, color=c, label=k, marker=".")
-
+                    try:
+                        _ = ax.scatter(planePointsList[k].x, planePointsList[k].y, planePointsList[k].z, c=next(color), label=k, marker=".")
+                    except:
+                        pass
+                    
                 ax.legend(loc="lower left")
                 ax.set_aspect('equal', adjustable='box')
                 filenameImage = self.imagesPath + self.building.identifier[0] + '_Plane3D_' + str(j) + ".png"

@@ -9,6 +9,7 @@ This program was developed to assess the photovoltaic potential on solar rooftop
 The following external apps are required:
 - **LAStools** (available at https://lastools.github.io/download/): for las to txt conversion and viceversa.
 - **QGIS** (available at https://qgis.org/en/site/forusers/download.html): for map operation.
+    -   **DEMto3D**: QGIS plugin (can be installed within the program) to generate STL files
 
 This was tested on a custom anaconda environment using a Jupyter Notebook. Check the *environment.yml* file to see the required packages (with the version that was proved to work).
 

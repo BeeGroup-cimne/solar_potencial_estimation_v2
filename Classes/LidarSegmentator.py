@@ -4,19 +4,9 @@ import pandas as pd
 
 # # Import qgis modules
 
-# from qgis.core import *
-# from qgis.analysis import QgsNativeAlgorithms
-# from qgis import processing
-
-# # Initialize QGIS Application
-# QgsApplication.setPrefixPath("C:\\OSGeo4W64\\apps\\qgis", True)
-# app = QgsApplication([], True)
-# QgsApplication.initQgis()
-
-# # Import and initialize Processing framework
-# from processing.core.Processing import Processing
-# Processing.initialize()
-# import processing
+# QGIS and processing related-modules
+from qgis.core import *
+from qgis import processing
 
 class LidarSegmentator:
     """
@@ -148,18 +138,16 @@ class LidarSegmentator:
         """
 
         # Exports building info to (temporal) csv and imports it as a layer 
-        tempExport = os.path.abspath((self.temp_path+ "/Isolated_Building.csv"))
+        tempExport = os.path.abspath(self.temp_path+ "/Isolated_Building.csv")
         self.building.to_csv(tempExport, index=False)
         uri = 'file:///%s?crs=%s&xField=%s&yField=%s' % (tempExport, 'epsg:'+str(srcLiDAR), 'x','y')
         Building_Centroid_Layer=QgsVectorLayer(uri,"Building_Centroid_Layer","delimitedtext")
-
         # Finds the polygon in the cadaster file(s) that contains the centroid 
         for cadaster_file in self.cadaster_files:
-
             # Loads cadaster Layer
-            directory = cadaster_files_path + "/" + cadaster_file
+            directory = os.path.abspath(cadaster_files_path + "/" + cadaster_file)
             Cadaster_Layer = QgsVectorLayer(directory,"Cadaster_Layer","ogr")
-            
+
             # Finds cadaster polygon that contains building centroid
             selected = processing.run("native:selectbylocation", {
                 'INPUT':Cadaster_Layer,
@@ -169,10 +157,10 @@ class LidarSegmentator:
                 'OUTPUT': 'TEMPORARY_OUTPUT',
                 }
             )
-
+            
             self.found_polygon_Layer = Cadaster_Layer.materialize(QgsFeatureRequest().setFilterFids(Cadaster_Layer.selectedFeatureIds()))
             self.found_polygon_Layer.setName("found_polygon_Layer")
-
+            
             if(self.found_polygon_Layer.featureCount() >= 1):
                 return True
             
@@ -208,13 +196,13 @@ class LidarSegmentator:
     #### Exports:
     - A .csv file containing only the LiDAR points that are inside the cadaster polygon (with the necessary buffer).
         """
-        
+
         uri = 'file:///%s?crs=%s&xField=%s&yField=%s&zField=%s&delimiter=%s' % (os.path.abspath(LiDAR_file), 'epsg:'+str(srcLiDAR), 'field_1','field_2', 'field_3', ' ')
         Layer_LIDAR=QgsVectorLayer(uri,"Layer_LIDAR","delimitedtext")
 
         offset_polygon_layer = processing.run("native:buffer", {
             'INPUT':self.found_polygon_Layer,
-            'DISTANCE':offset/(40075*1000)*360, # Converts from meters to arc degrees
+            'DISTANCE':offset,# /(40075*1000)*360, # Converts from meters to arc degrees
             'SEGMENTS':5,
             'END_CAP_STYLE':2,
             'JOIN_STYLE':2,
@@ -232,6 +220,7 @@ class LidarSegmentator:
             }
         )
 
+        #points_buildings_Layer = selected['OUTPUT']
         points_buildings_Layer = Layer_LIDAR.materialize(QgsFeatureRequest().setFilterFids(Layer_LIDAR.selectedFeatureIds()))
         points_buildings_Layer.setName("points_buildings_Layer")
 

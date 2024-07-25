@@ -3,11 +3,9 @@ import pandas as pd
 import subprocess  # Merge laz files
 
 import sys
-# sys.path.append("C:/DEMto3D-QGIS-Plugin/model_builder")  # Import stl related modules
-# import Model_Builder, STL_Builder
-# from qgis.core import *
-# from qgis.analysis import QgsNativeAlgorithms
-# from qgis import processing
+sys.path.append("Sample/DEMto3D-QGIS-Plugin-master/model_builder") #("C:/DEMto3D-QGIS-Plugin/model_builder")  # Import stl related modules
+import Model_Builder, STL_Builder
+from qgis.core import *
 
 from Functions.general_functions import create_output_folder
 
@@ -33,14 +31,14 @@ class STLExporter:
     - dem_to_3d: convert the previously generated raster file of the neighborhood to a .stl file (3D model)
     """
     
-    def __init__(self, building, stl_side, squarePaths, temp_path, LAStoolsPath):
+    def __init__(self, building, stl_side, squarePaths, temp_path, txt2lasPath, las2demPath):
         """
-    #### Inputs:
+    #### Inputs:/
     - building:  single-row dataframe containing the following fields: identifier, x, y
     - stl_side: length (in meters) of the side of the neighborhood (square)
     - squarePaths: array containing [TXT_path, LAS_path, DEM_path, STL_path]
     - temp_path: path where temporal files will be stored(
-    - LAStoolsPath: path where the LAStools applications are located (needed for txt2las, but general path must be specified)
+    - txt2lasPath, las2demPath: path where each LAStools applications is located
         """
         self.building = building
         self.stl_side = stl_side
@@ -49,7 +47,8 @@ class STLExporter:
         self.LAS_path = squarePaths[1]
         self.DEM_path = squarePaths[2]
         self.STL_path = squarePaths[3]
-        self.LAStoolsPath = LAStoolsPath # "C:/LAStools/bin/txt2las.exe"
+        self.txt2lasPath = txt2lasPath #"C:/LAStools/bin/txt2las.exe"
+        self.las2demPath = las2demPath 
     
     def segmentSquare(self, LiDAR_extended):
         """
@@ -61,7 +60,7 @@ class STLExporter:
         """
         
         create_output_folder(self.TXT_path)
-        outputFile = self.TXT_path + "\\" + self.building.identifier[0] + '.txt'
+        outputFile = self.TXT_path + "/" + self.building.identifier[0] + '.txt'
 
         centroid = [ self.building.x[0], self.building.y[0]]
 
@@ -86,14 +85,14 @@ class STLExporter:
         for file in os.listdir(txt_path):
             if file.endswith('.txt'):
                 txt_files.append("-i")
-                txt_files.append(txt_path + file)
+                txt_files.append(os.path.abspath(txt_path + file))
 
-        outputDir = self.LAS_path
+        outputDir = os.path.abspath(self.LAS_path)
 
-        args = [self.LAStoolsPath + "/bin/txt2las.exe"]
+        args = [self.txt2lasPath]
         args.extend(txt_files)
         args.extend(['-odir', outputDir])
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        proc = subprocess.Popen(args)#, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         return proc.communicate()
         
     def las_to_dem(self):
@@ -107,14 +106,14 @@ class STLExporter:
         for file in os.listdir(las_path):
             if file.endswith('.las'):
                 las_files.append("-i")
-                las_files.append(las_path + file)
+                las_files.append(os.path.abspath(las_path + file))
 
-        outputDir = self.DEM_path
+        outputDir = os.path.abspath(self.DEM_path)
 
-        args = [self.LAStoolsPath + "/bin/las2dem.exe"]
+        args = [self.las2demPath]
         args.extend(las_files)
         args.extend(['-odir', outputDir])
-        proc = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+        proc = subprocess.Popen(args)#, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         output, error = proc.communicate()
 
     def dem_to_3d(self):

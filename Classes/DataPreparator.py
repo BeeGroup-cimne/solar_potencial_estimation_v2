@@ -6,16 +6,7 @@ import subprocess  # To work with lastools .exe files
 
 # QGIS and processing related-modules
 from qgis.core import *
-QgsApplication.setPrefixPath("", True)
-from qgis.analysis import QgsNativeAlgorithms
 from qgis import processing
-from processing.core.Processing import Processing
-
-# Initialize QGIS Application and Processing framework
-app = QgsApplication([], True)
-QgsApplication.initQgis()
-Processing.initialize()
-
 
 class DataPreparator:
     """
@@ -201,10 +192,9 @@ class DataPreparator:
             
             parameters = {
                 'INPUT':Cadaster,
-                # 'ROUND_TO':0,
+                'ROUND_TO':0,
                 'OUTPUT':'TEMPORARY_OUTPUT'
             }
-
             extension = processing.run("native:polygonfromlayerextent", parameters)['OUTPUT']
             
             # fields = []
@@ -213,10 +203,15 @@ class DataPreparator:
             
             for feature in extension.getFeatures():
                 filename.append(file)
-                minx.append(global_to_local.transform(feature['MINY'], feature['MINX'])[0])
-                miny.append(global_to_local.transform(feature['MINY'], feature['MINX'])[1])
-                maxx.append(global_to_local.transform(feature['MAXY'], feature['MAXX'])[0])
-                maxy.append(global_to_local.transform(feature['MAXY'], feature['MAXX'])[1])
+                corner1 = global_to_local.transform(feature['MINY'], feature['MINX'])
+                corner2 = global_to_local.transform(feature['MINY'], feature['MAXX'])
+                corner3 = global_to_local.transform(feature['MAXY'], feature['MINX'])
+                corner4 = global_to_local.transform(feature['MAXY'], feature['MAXX'])
+
+                minx.append(min(corner1[0], corner2[0], corner3[0], corner4[0]))
+                miny.append(min(corner1[1], corner2[1], corner3[1], corner4[1]))
+                maxx.append(max(corner1[0], corner2[0], corner3[0], corner4[0]))
+                maxy.append(max(corner1[1], corner2[1], corner3[1], corner4[1]))
 
         # Convert stored info to dataframe and export it to .csv 
         cadaster_limits = pd.DataFrame({
@@ -228,7 +223,9 @@ class DataPreparator:
         save_path = self.output_path + "/Cadaster"
         create_output_folder(save_path)
         cadaster_limits.to_csv((save_path + "/Cadaster_Limits.csv"), index=False)
+        
         print("Cadaster preparation done")
+
 
     def prepare_LiDAR(self, las2txtPath="C:/LAStools/bin/las2txt.exe"):
         """

@@ -154,7 +154,6 @@ class SolarEstimator:
             filenames = [self.LiDAR_path + "/" + fileList[x] for x in range(len(fileList))]
             destination = self.temp_path + "/temporalMerged.txt"
             self.LiDAR_extended = merge_txt(filenames, destination)
-            
             # Checks each cadaster limits and looks for polygon only in those files where it is indicated it could be in 
             self.segmentator.find_potential_cadaster(self.cadaster_limits)
             foundcadaster = self.segmentator.polygon_cadaster(self.cadaster_path, self.crsLiDAR)
@@ -168,12 +167,12 @@ class SolarEstimator:
                 print("Building " + self.building.identifier[0] + " does not have cadaster info")
 
     # Step 2 - Export the .stl file
-    def createNeighborhood(self, LAStoolsPath, square_side=None, export3D=True):
+    def createNeighborhood(self, txt2lasPath, las2demPath, square_side=None, export3D=True):
         """
     This function generates the point cloud/3D files of the neighborhood
 
     #### Inputs:
-    - LAStoolsPath: directory where txt2las.exe is stored
+    - txt2lasPath, las2demPath: directory where each lasTools are is stored
     - square_side: the length (in m) of the side of the square of the 3D model that is generated and will later be used for shading
     - export3D: if False, it ony  export .csv and .laz files. If True, it exports also the raster and .stl file 
     
@@ -189,7 +188,7 @@ class SolarEstimator:
         if(square_side != None):
             self.square_side = square_side
 
-        self.stlGenerator = STLExporter(self.building, self.square_side, self.squarePaths, self.temp_path, LAStoolsPath=LAStoolsPath)
+        self.stlGenerator = STLExporter(self.building, self.square_side, self.squarePaths, self.temp_path, txt2lasPath, las2demPath)
         self.stlGenerator.segmentSquare(self.LiDAR_extended)
         self.stlGenerator.txt_to_las()
         if(export3D):
