@@ -96,3 +96,8 @@ The final results are the yearly generation of all the sampled points in the roo
 <p align="center">
 <img src="https://github.com/BeeGroup-cimne/solar_potencial_estimation_v2/assets/108261022/6b0947f4-c353-42bd-b3be-11544bdc21ce" alt="Solar estimation" width="400"/>
 </p>
+
+
+## Use Case example
+
+This code was used in the ePLANET H2020 European project to analyze the PV potential for public buildings in the Zlín Region (Czech Republic). The results are available at https://zenodo.org/records/12705189.
