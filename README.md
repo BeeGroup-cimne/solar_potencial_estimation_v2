@@ -101,3 +101,14 @@ The final results are the yearly generation of all the sampled points in the roo
 ## Use Case example
 
 This code was used in the ePLANET H2020 European project to analyze the PV potential for public buildings in the Zlín Region (Czech Republic). The results are available at https://zenodo.org/records/12705189.
+
+## Authors
+- Killian Premel
+- Jaume Asensio
+- Maria Maiques
+- Gerard Laguna
+- Jordi Cipriano
+- Gerard Mor
+- Francesc Contreras
+
+Copyright (c) 2024 Jaume Asensio, Gerard Laguna, Jordi Cipriano, Killian Premel, Maria Maiques, Gerard Mor, Francesc Contreras
