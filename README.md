@@ -104,11 +104,12 @@ This code was used in the ePLANET H2020 European project to analyze the PV poten
 
 ## Authors
 - Killian Premel
-- Jaume Asensio
-- Maria Maiques
-- Gerard Laguna
-- Jordi Cipriano
-- Gerard Mor
-- Francesc Contreras
+- Jaume Asensio - jaume.asensio.upc.edu
+- Maria Maiques - maria.maiques@estudiantat.upc.edu
+- Gerard Laguna - glaguna@cimne.upc.edu
+- Jordi Cipriano - cipriano@cimne.upc.edu
+- Gerard Mor gmor@cimne.upc.edu
+- Jose Manuel Broto - jmbroto@cimne.upc.edu
+- Francesc Contreras - fcontreras@cimne.upc.edu
 
-Copyright (c) 2024 Jaume Asensio, Gerard Laguna, Jordi Cipriano, Killian Premel, Maria Maiques, Gerard Mor, Francesc Contreras
+Copyright (c) 2024 Jaume Asensio, Gerard Laguna, Jordi Cipriano, Killian Premel, Maria Maiques, Gerard Mor, Jose Manuel Broto, Francesc Contreras
